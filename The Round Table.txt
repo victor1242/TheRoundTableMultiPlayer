@@ -1,0 +1,36 @@
+Serf → Peasant → Squire → Man-at-Arms → Knight → Banneret → Baron → Lord → High Lord → Roundtable Champion (Renown point ladder).
+
+Experience (XP) Scaling Examples
+Linear: Each level takes the same amount of XP (e.g., 1000 XP per level).
+Exponential: The XP needed increases, requiring more effort for higher levels (e.g., level 2 needs 100, level 3 needs 200, level 4 needs 400).
+Cap: A maximum skill level or character level (e.g., Level 120 cap in RuneScape). 
+Wikipedia
+Wikipedia
+ +4
+Skill-based XP
+Apr 10, 2024 — and I I'll define what I mean by it. and then what I what problems I see happening because keep in mind I'm not telling you not to...
+
+
+YouTube
+·
+Timothy Cain
+
+10m
+Make Your First RPG | Levelling Up & XP Progression System
+Jan 24, 2025 — and when you level up your maximum health and damage go up we also going to add a second enemy type that is harder to defeat on lo...
+
+
+YouTube
+·
+GameMaker
+
+2m
+Dreyfus model of skill acquisition - Wikipedia
+The Dreyfus Skill Model proposes that a student passes through five distinct stages of novice, advanced beginner, competence, prof...
+
+Wikipedia
+Show all
+Dive deep
+
+skill meld of 3 cards no wilds 4 and so on to 11
+runs no wilds higher value then sets

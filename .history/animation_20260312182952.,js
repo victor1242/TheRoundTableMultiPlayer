@@ -1,0 +1,53 @@
+let timeScale = 1.0; // 0.5 = slow, 2.0 = fast
+function update(deltaTime) {
+    let scaledDelta = deltaTime * timeScale;
+    player.x += player.speed * scaledDelta;
+    // Update animations, physics, etc.
+}
+
+let isPaused = false;
+let stepRequested = false;
+
+function gameLoop(timestamp) {
+    if (!isPaused || stepRequested) {
+        update(1000/60); // Use fixed time step
+        draw();
+        stepRequested = false; // Reset step
+    }
+    if (!isPaused || stepRequested) {
+        requestAnimationFrame(gameLoop);
+    }
+}
+// Button handler
+function onStepClick() {
+    stepRequested = true;
+    if (isPaused) requestAnimationFrame(gameLoop);
+}
+
+JavaScript game speed control and stepping are implemented by manipulating the time delta (
+) within the requestAnimationFrame loop, typically using a multiplier variable (e.g., 
+ for normal speed, 
+ for slow motion) to scale movement and physics. Stepping allows pausing the loop and advancing the game one frame at a time. 
+YouTube
+YouTube
+ +3
+Speed Control Implementation
+Time Scale Modifier: Implement a global timeScale variable. Multiply all game object updates (movement, animations) by this variable within your loop.
+
+GUI Slider: Use an HTML range input slider to dynamically change the timeScale variable.
+Engine Specifics: If using a framework like Phaser or Godot, access the time_scale property directly. 
+YouTube
+YouTube
+ +2
+Stepping Option (Frame-by-Frame)
+To implement stepping, the game loop must be paused and manually triggered.
+Pause Loop: Set a boolean isPaused = true and stop calling requestAnimationFrame.
+Step Function: Create a function that calls the update() and draw() functions exactly once, using a fixed delta time (e.g., 
+
+ ms for 60 FPS).
+UI Button: Add a "Step" button that calls this function. 
+YouTube
+YouTube
+ +2
+
+ 

@@ -1,0 +1,38 @@
+Five Crowns Multiplayer Stress Test (4 Devices)
+
+Devices
+- Victor (laptop)
+- Fred (iPad)
+- Phone player
+- Fire tablet player
+
+Setup
+1. Join all 4 devices to one room.
+2. Confirm each device shows all players in the room list.
+
+Test Sequence
+1. Play 2 full rounds with no disconnects.
+2. Disconnect one non-host mid-turn, reconnect after 15-30 seconds.
+3. Disconnect host mid-turn, reconnect after 15-30 seconds.
+4. Disconnect 2 players at once, reconnect one first, then the other.
+5. Keep one player offline for 2-3 turns (AI takeover), then reconnect.
+
+Verify After Each Scenario
+1. No "Room not found" appears for remaining players.
+2. Turn owner is correct on every device.
+3. Reconnected player gets correct hand/state restore.
+4. Status banner matches actual current turn.
+5. Opponent list includes everyone; offline/AI markers are accurate.
+
+Pass Criteria
+1. No frozen turns.
+2. No room destruction while at least one player remains connected.
+3. No stale status text after turn changes.
+4. Scores and round transitions stay consistent on all devices.
+
+Notes (fill in during testing)
+- Scenario:
+- Result (Pass/Fail):
+- Device(s):
+- What happened:
+- Any console/server log clues:

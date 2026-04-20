@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Local Static Server",
+      "type": "shell",
+      "command": "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -match 'debug-server.js' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; node debug-server.js",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": ".+"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^Starting local debug server$",
+          "endsPattern": "^Local debug server ready:"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Stop Local Static Server",
+      "type": "shell",
+      "command": "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -match 'debug-server.js' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }",
+      "presentation": {
+        "reveal": "never",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

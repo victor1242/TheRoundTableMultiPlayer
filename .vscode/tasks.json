@@ -1,0 +1,98 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Local Static Server",
+      "type": "shell",
+      "command": "$ErrorActionPreference = 'SilentlyContinue'; Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -match 'debug-server.js' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; Get-NetTCPConnection -LocalPort 5500 -State Listen | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force }; node debug-server.js",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": ".+"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^Starting local debug server$",
+          "endsPattern": "^Local debug server ready:"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Stop Local Static Server",
+      "type": "shell",
+      "command": "$ErrorActionPreference = 'SilentlyContinue'; Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -match 'debug-server.js' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; Get-NetTCPConnection -LocalPort 5500 -State Listen | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force }",
+      "presentation": {
+        "reveal": "never",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Multiplayer Backend",
+      "type": "shell",
+      "command": "$ErrorActionPreference = 'SilentlyContinue'; Get-NetTCPConnection -LocalPort 3001 -State Listen | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force }; npm run server:start",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": ".+"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".+",
+          "endsPattern": "^\\[multiplayer\\] listening on port"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Stop Multiplayer Backend",
+      "type": "shell",
+      "command": "$ErrorActionPreference = 'SilentlyContinue'; Get-NetTCPConnection -LocalPort 3001 -State Listen | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force }",
+      "presentation": {
+        "reveal": "never",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Multiplayer + Static",
+      "dependsOn": [
+        "Start Local Static Server",
+        "Start Multiplayer Backend"
+      ],
+      "dependsOrder": "parallel",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "detail": "Default: starts static host (5500) and multiplayer backend (3001)."
+    },
+    {
+      "label": "Restart Multiplayer + Static",
+      "dependsOn": [
+        "Stop Multiplayer + Static",
+        "Start Multiplayer + Static"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": [],
+      "detail": "Stops and restarts both local services."
+    },
+    {
+      "label": "Stop Multiplayer + Static",
+      "dependsOn": [
+        "Stop Local Static Server",
+        "Stop Multiplayer Backend"
+      ],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
+    }
+  ]
+}

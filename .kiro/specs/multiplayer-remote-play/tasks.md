@@ -1,0 +1,117 @@
+# Tasks: Multiplayer Remote Play
+
+These tasks follow the phase-by-phase build plan agreed in design review.
+Each phase builds on the previous. Do not start a phase until the prior one passes its success criteria.
+
+---
+
+## Phase 1 — Shared Game Engine Extraction ✅
+
+- [x] Identify all pure game logic in `classes.js`, `functions.js`, `AI.js` that has no DOM dependency
+- [x] Create `server/engine/gameEngine.js` as a pure JS module
+- [x] Move (or re-implement) core rule functions: deal, draw, meld validation, discard, scoring, going out
+- [x] Ensure engine exports work in both browser (`<script>`) and Node.js (`require`)
+- [x] Write smoke tests confirming engine produces correct state for a sample round
+- **Success criteria:** Same rules run correctly in the browser and in a Node REPL without any DOM ✅
+
+---
+
+## Phase 2 — Multiplayer Server Skeleton ✅ (scaffolded)
+
+- [x] Create `server/index.js` with Express + Socket.IO
+- [x] Create `server/rooms/gameRoom.js` with room model and player seat management
+- [x] Create `server/rooms/roomManager.js` with create/join/start/action/disconnect handlers
+- [x] Add `server:start` and `server:dev` npm scripts
+- [x] Install express and socket.io dependencies
+- [x] Verify `/health` endpoint responds correctly
+- [x] Wire Socket.IO lobby events to a simple browser test page
+- [x] Confirm 2 browsers can join the same room and see synchronized lobby state
+- **Success criteria:** 2 browsers join same room and see synchronized lobby and game start ✅
+
+---
+
+## Phase 3 — Server-Authoritative Turns
+
+- [ ] Plug `gameEngine.js` into `roomManager.applyAction`
+- [ ] Implement draw-from-deck action with server deck state
+- [ ] Implement draw-from-discard action
+- [ ] Implement meld action (validate meld sets server-side)
+- [ ] Implement discard action (enforce wild card rules)
+- [ ] Implement endTurn action with automatic turn advancement
+- [ ] Reject and return error codes for out-of-turn or illegal moves
+- [ ] Broadcast minimal public state delta + version after each valid action
+- [ ] Send private hand update only to the acting player
+- **Success criteria:** No client can play out of turn or bypass any game rule
+
+---
+
+## Phase 4 — Persistence and Recovery
+
+- [ ] Choose storage: SQLite for MVP
+- [ ] Create schema: rooms, players, game_snapshots, action_log
+- [ ] Save snapshot on: round start, each validated action, round end, game end
+- [ ] Load and restore active rooms on server startup
+- [ ] Add migration path for schema changes
+- **Success criteria:** Restart server mid-game and the room is fully restored
+
+---
+
+## Phase 5 — Reconnect and Session Handling
+
+- [ ] Issue reconnect token (UUID) to each player at join time
+- [ ] Store token server-side with seat assignment
+- [ ] Accept reconnect token in `room:join` to rebind player to seat
+- [ ] Implement grace window (configurable, default 60 seconds)
+- [ ] On reconnect, send latest game state + private hand to returning player
+- [ ] Broadcast player-reconnected event to room
+- [ ] On grace window expiry, mark seat as open or invoke AI substitution
+- **Success criteria:** Browser refresh reconnects to the same seat and receives current state
+
+---
+
+## Phase 6 — Windows 10 Deployment
+
+- [x] Install Node.js LTS on the desktop machine
+- [x] Install PM2 globally: `npm install -g pm2`
+- [ ] Create `ecosystem.config.js` for PM2 with log rotation and watch settings
+- [ ] Run `pm2 start ecosystem.config.js` and verify server starts
+- [ ] Run `pm2 startup` to generate Windows auto-start command and apply it
+- [ ] Run `pm2 save` to persist the process list
+- [ ] Assign a static LAN IP to the desktop in router DHCP settings
+- [ ] Open required inbound port(s) in Windows Firewall
+- [ ] Configure port forwarding on router to the desktop's static IP
+- [ ] Install Caddy (recommended) or Nginx as reverse proxy
+- [ ] Obtain TLS certificate (Caddy handles this automatically via Let's Encrypt)
+- [ ] Configure reverse proxy to forward HTTPS traffic to Node server port
+- [ ] Sign up for a dynamic DNS provider (e.g. DuckDNS, No-IP) and install updater
+- [ ] Confirm a remote device can reach the game over HTTPS
+- **Success criteria:** A remote player on a different network can connect securely and play
+
+---
+
+## Phase 7 — Hardening
+
+- [ ] Add per-socket action rate limiting
+- [ ] Add input sanitization for all socket payloads
+- [ ] Create a dedicated non-admin Windows user account for the server process
+- [ ] Enable PM2 log rotation
+- [ ] Implement nightly database backup script (copy to secondary drive or cloud)
+- [ ] Add structured logging for game events, errors, and reconnect activity
+- [ ] Write integration tests: full round flow, reconnect flow, going-out flow
+- [ ] Add admin endpoint (localhost only) for room cleanup and stale session purge
+- [ ] Conduct beta playtest with 3 to 4 remote users and review logs
+- **Success criteria:** Stable multi-hour session with 3+ remote users and clean logs
+
+---
+
+## Milestone Summary
+
+| Phase | Target |
+|-------|--------|
+| 1 — Engine extraction | Week 1 |
+| 2 — Server skeleton | Week 1 ✅ scaffolded |
+| 3 — Authoritative turns | Week 2 |
+| 4 — Persistence | Week 2 |
+| 5 — Reconnect | Week 3 |
+| 6 — Windows deployment | Week 3 |
+| 7 — Hardening + beta test | Week 4 |

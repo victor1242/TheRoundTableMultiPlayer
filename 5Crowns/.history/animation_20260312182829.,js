@@ -1,0 +1,7 @@
+let timeScale = 1.0; // 0.5 = slow, 2.0 = fast
+function update(deltaTime) {
+    let scaledDelta = deltaTime * timeScale;
+    player.x += player.speed * scaledDelta;
+    // Update animations, physics, etc.
+}
+

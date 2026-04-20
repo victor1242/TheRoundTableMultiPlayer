@@ -1,0 +1,6 @@
+^\s*\+\s*$                     // standalone +
+^\s*-\s*$                      // standalone -
+^\s*<<<<<<<\s+.*$              // conflict start
+^\s*=======\s*$                // conflict divider
+^\s*>>>>>>>\s+.*$              // conflict end
+^\s*@@\s+-\d+(?:,\d+)?\s+\+\d+(?:,\d+)?\s+@@.*$  // diff hunk header
