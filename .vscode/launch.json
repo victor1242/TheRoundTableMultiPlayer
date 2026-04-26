@@ -3,46 +3,23 @@
     "configurations": [
         {
             "name": "Debug Multiplayer (Chrome localhost)",
-            "type": "pwa-chrome",
+            "type": "chrome",
             "request": "launch",
-            "url": "http://localhost:5500/5Crowns/multiplayer.html",
+            "url": "http://localhost:5500/TheRoundTableMultiPlayer/multiplayer.html",
             "webRoot": "${workspaceFolder}",
             "preLaunchTask": "Start Multiplayer + Static"
         },
         {
-            "name": "Debug Multiplayer (Edge localhost)",
-            "type": "pwa-msedge",
+            "name": "Debug TheRoundTableMultiPlayer (Chrome localhost)",
+            "type": "chrome",
             "request": "launch",
-            "url": "http://localhost:5500/5Crowns/multiplayer.html",
-            "webRoot": "${workspaceFolder}",
-            "preLaunchTask": "Start Multiplayer + Static"
-        },
-        {
-            "name": "Debug 5Crowns (Chrome localhost)",
-            "type": "pwa-chrome",
-            "request": "launch",
-            "url": "http://localhost:5500/index.html",
+            "url": "http://localhost:5500/TheRoundTableMultiPlayer/index.html",
             "webRoot": "${workspaceFolder}",
             "preLaunchTask": "Start Local Static Server"
-        },
-        {
-            "name": "Debug index.html (Edge via localhost)",
-            "type": "pwa-msedge",
-            "request": "launch",
-            "url": "http://localhost:5500/index.html",
-            "webRoot": "${workspaceFolder}",
-            "preLaunchTask": "Start Local Static Server"
-        },
-        {
-            "name": "Debug index.html (Edge file)",
-            "type": "pwa-msedge",
-            "request": "launch",
-            "file": "${workspaceFolder}/index.html",
-            "webRoot": "${workspaceFolder}"
-        },
+        },  
         {
             "name": "Debug index.html (Chrome)",
-            "type": "pwa-chrome",
+            "type": "chrome",
             "request": "launch",
             "file": "${workspaceFolder}/index.html",
             "webRoot": "${workspaceFolder}"

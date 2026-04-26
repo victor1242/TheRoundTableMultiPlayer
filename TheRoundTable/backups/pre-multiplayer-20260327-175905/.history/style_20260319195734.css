@@ -1,0 +1,525 @@
+
+.game-board { display: flex; gap: 20px; justify-content: center; padding: 20px; }
+.card-stack { text-align: center; font-family: sans-serif; }
+.card-image {
+   height: 96px;  
+    width: 72px;
+    border: 2px solid #333; border-radius: 10px;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 50px; background-color: #f0f0f0;
+    box-shadow: 3px 3px 5px rgba(0,0,0,0.3);
+}
+.card-count { margin-top: 8px; font-weight: bold; font-size: 1.2em; }
+
+/* Rules/reference pages (scoped to body.rules) */
+body.rules {
+    font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+    font-size: 16px;
+    line-height: 1.5;
+    background: #f5f1e6;
+    color: #222;
+    text-align: left;
+    margin: 0;
+    padding: 24px;
+}
+body.rules h1,
+body.rules h2 {
+    margin: 0 0 12px 0;
+}
+body.rules p {
+    margin: 0 0 12px 0;
+}
+.rules-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #c9c2b1;
+}
+.rules-nav a {
+    color: #2a4e8a;
+    text-decoration: none;
+    font-weight: bold;
+}
+.rules-nav a:hover {
+    text-decoration: underline;
+}
+.rules-content {
+    max-width: 820px;
+}
+.player-prompt {
+    font-size: 20px;
+    display:
+    font-weight: bold;
+    color: #f7f3f4ec;
+    margin-bottom: 8px;
+}
+
+.playerName {
+    font-size: 16px;
+    font-weight: bold;
+    align-items: center;
+    display: flex;
+}
+
+.player-status {
+  display: flex; /* Aligns buttons horizontally in a row */
+  font-size: 12px;
+  gap: 10px;
+  flex-wrap: wrap; /* Allows buttons to wrap on smaller screens */
+}
+
+.button-group {
+  display: flex; /* Aligns buttons horizontally in a row */
+  flex-wrap: wrap;
+  gap: 10px; /* Adds space between buttons */
+  flex-wrap: wrap; /* Allows buttons to wrap on smaller screens */
+}
+
+
+
+button {
+    padding: 10px 10px;
+    font-size: 8px;
+    cursor: pointer;
+    margin-bottom: 5px; /* Adds a small gap between the button and the text below */
+}
+
+/* Compact player status rows so hands sit closer together */
+.p1status,
+.p2status,
+.p3status {
+    padding: 1px 4px;
+    margin-bottom: 0;
+    line-height: 1;
+    min-height: 0;
+}
+
+#p1ai-h,
+#p2ai-h,
+#p3ai-h {
+    width: 22px;
+    height: 22px;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    margin: 0 4px 0 0;
+    box-shadow: none;
+    vertical-align: middle;
+}
+
+.ai-icon {
+    width: 18px;
+    height: 18px;
+    display: block;
+    opacity: 0.75;
+    filter: saturate(1.05);
+}
+
+#p1prompt,
+#p2prompt,
+#p3prompt {
+    margin: 0;
+    line-height: 1;
+    font-size: 12px !important;
+    min-height: 0;
+}
+
+#p1prompt:empty,
+#p2prompt:empty,
+#p3prompt:empty {
+    display: none;
+}
+
+p {
+    margin: 0; /* Removes default paragraph margin */
+    text-align: center; /* Ensures text is centered below the button */
+    font-size: 14px;
+    color: #555;
+}
+
+
+#p1name {
+    display: inline-block;
+    height: auto;
+    color: #f7f3f4ec;
+    font-weight: bold;
+    text-align: center;
+    font-size: 4.95em;
+    vertical-align: middle;
+    writing-mode: vertical-lr;
+}
+
+#p2name {
+    display: inline-block;
+    color: #f7f3f4ec;
+    font-weight: bold;
+    text-align: center;
+    font-size: 4.95em;
+    vertical-align: middle;
+}
+#p3name {
+    display: inline-block;
+    color: #f7f3f4ec;
+    font-weight: bold;
+    text-align: center;
+    font-size: 4.95em;
+    vertical-align: middle;
+}
+
+#player1name,
+#player2name,
+#player3name {
+    display: inline-block;
+    color: #f7f3f4ec;
+    font-weight: bold;
+    font-size: 0.95em;
+    vertical-align: middle;
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+}
+.container {
+    display: inline-block;
+    width: 80px;
+    text-align: right;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+.player-panel.active {
+    border: 2px solid #2a7cff;
+    background: #e6f0ff;
+}
+.active-player-name {
+    color: #22bb22;
+    font-weight: bold;
+}
+/* Player hand name label */
+
+
+html, body {
+    height: 100%;
+}
+body {
+    text-align: center;
+    font-family: sans-serif;
+    font-size: 12px;
+    background-color: #333; /* Game table background */
+    color: white;
+    margin: 3px;
+    padding: 5px 280px 120px 10px; /* reserve space on right for fixed AI panel, reduced left padding */
+    overflow: auto;
+}
+
+#aiPanel {
+    position: fixed;
+    top: 50%;
+    right: 12px;
+    left: auto;
+    bottom: auto;
+    transform: translateY(-50%);
+    z-index: 9999;
+    width: min(260px, calc(100vw - 32px)); /* reduced from 380px to 260px */
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    text-align: left;
+}
+
+@media (max-width: 1100px) {
+    body {
+        padding: 20px 20px 120px 20px;
+    }
+
+    #aiPanel {
+        position: static;
+        transform: none;
+        width: min(280px, calc(100vw - 32px));
+        max-height: none;
+        margin: 16px auto 0;
+        overflow: visible;
+    }
+}
+
+.game-directory {
+    background: rgba(20, 20, 20, 0.92);
+    color: #f2f2f2;
+    border: 1px solid #666;
+    border-radius: 6px;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.game-directory-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 4px 6px;
+    margin: 6px 0;
+}
+
+.game-directory-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+
+.game-directory-list {
+    width: 100%;
+    min-height: 120px;
+    box-sizing: border-box;
+    background: #1b1b1b;
+    color: #f2f2f2;
+    border: 1px solid #555;
+}
+#game-info,
+#game-info label,
+#game-info span {
+    font-size: 12px;
+}
+#game-info button {
+    font-size: 12px;
+    padding: 2px 6px;
+}
+.deckCard {
+    font-size: 12px;
+    padding: 2px 6px;
+}
+
+.p1card
+{
+    height: 96px;  
+    width: 72px;
+    margin: 1px 1px; /* reduced from 2px to 1px for tighter spacing */
+    display: inline-block;
+    vertical-align: top;
+    background: transparent;
+    border: 1px solid transparent;
+    box-shadow: none;
+    padding: 0;
+}
+
+.p2card
+{
+    height: 96px;  
+    width: 72px;
+    margin: 1px 1px; /* reduced from 2px to 1px for tighter spacing */
+    display: inline-block;
+    vertical-align: top;
+    background: transparent;
+    border: 1px solid transparent;
+    box-shadow: none;
+    padding: 0;
+}
+
+.p3card
+{
+    height: 96px;  
+    width: 72px;
+    margin: 1px 1px; /* reduced from 2px to 1px for tighter spacing */
+    display: inline-block;
+    vertical-align: top;
+    background: transparent;
+    border: 1px solid transparent;
+    box-shadow: none;
+    padding: 0;
+}
+
+.p1card img,
+.p2card img,
+.p3card img,
+.deck img,
+.discard img {
+    display: block;
+}
+
+
+.dragging {
+  opacity: 0.5;
+  border: 2px dashed #333;
+  /* Add other styles like cursor changes here */
+}
+
+.game-container {
+    display: flex;
+    flex-direction: column;
+    gap: 30px; /* Space between player areas */
+    align-items: center;
+    width: 100%;
+}
+
+.player-area {
+    text-align: center;
+    width: 100%;
+}
+
+.hand {
+    display: flex;
+    justify-content: center; /* Center the cards horizontally */
+    gap: 10px; /* Space between cards */
+    flex-wrap: wrap; /* Allows cards to wrap on very small screens */
+    display: block;
+    float: right;
+    margin: 0 auto;
+    background-color: #4CAF50; /* Green */
+}
+.my-cards  {
+    height: 175px;
+    width: 125px;
+    margin: 10px;
+}  
+.deck  {
+    height: 175px;
+    width: 125px;
+    margin: 10px;
+}      
+.dealer-cards  {
+    width: 100%;
+    height: 108px;
+    background-color: blue;
+    margin: 3px;
+}    
+.my-button {
+  background-color: white;
+  color: black;
+  border:4px solid #000000;
+  text-align: center;
+  align-items: center;
+  width: 120px;
+  height: 50px;
+  font-size: 12px;
+  padding: 20px 40px;
+  border-radius: 5px;
+}
+
+/* Define the blink animation */
+  @keyframes blinker {
+    50% { opacity: 0.3; }
+  }
+
+  /* Style for the button group */
+  .button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  /* Style for the buttons */
+  .btn {
+    padding: 10px 20px;
+    cursor: pointer;
+  }
+
+  /* Class to apply the animation */
+  .blinking {
+    animation: blinker 2.5s linear infinite;
+  }
+
+
+.card-container {
+    position: relative;
+    height: 100%;
+    width: calc(var(--card-width-lg) * (var(--num-cards) / 2) + var(--card-horizontal-space-lg));
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    grid-template-areas: "a b" "c d";
+}
+
+
+.pile {
+    width: 25px;
+    height: 38px;
+    background-color: #555;
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #ccc;
+}
+
+/* Player panel (name + round score + game score) */
+.player-panel {
+    display: inline-block;
+    margin: 2px;
+    padding: 1px 3px;
+    border: 1px solid #444;
+    border-radius: 1px;
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    text-align: center;
+    width: 30px;
+}
+.player-panel.active {
+    box-shadow: 0 0 0 3px rgba(0,122,204,0.12);
+    border-color: #1e90ff;
+}
+.player-name {
+    font-weight: 700;
+    margin-bottom: 4px;
+    font-size: 12px;
+}
+.player-roundscore {
+    font-size: 11px;
+    color: #ddd;
+}
+.player-gamescore {
+    font-size: 11px;
+    color: #ddd;
+}
+/* Container for player panels */
+#players-container {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+/* Round results debug box */
+.round-results {
+    margin: 8px auto 12px;
+    padding: 8px 12px;
+    max-width: 480px;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: #fff;
+    text-align: left;
+    border-radius: 6px;
+}
+.round-results h3 {
+    margin: 4px 0 6px;
+    font-size: 12px;
+}
+
+/* clickable card cursor for active player's hand */
+.p1card img, .p2card img { cursor: default; }
+.player-panel.active ~ .player-area .p1card img { cursor: pointer; }
+
+/* small toast message shown under player panels */
+.game-toast {
+    margin: 8px auto 0;
+    padding: 6px 10px;
+    background: rgba(0,0,0,0.7);
+    color: #fff;
+    border-radius: 6px;
+    max-width: 320px;
+    text-align: center;
+    transition: opacity 0.25s ease-in-out;
+    opacity: 0;
+}
+
+.card-piles {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end; /* or center */
+  gap: 60px;
+  font-size: 20px;
+  margin-bottom: 5px; /* Adds a small gap between the button and the text below */
+}
+
+.pile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}

@@ -1,0 +1,25 @@
+let timeScale = 1.0; // 0.5 = slow, 2.0 = fast
+function update(deltaTime) {
+    let scaledDelta = deltaTime * timeScale;
+    player.x += player.speed * scaledDelta;
+    // Update animations, physics, etc.
+}
+
+let isPaused = false;
+let stepRequested = false;
+
+function gameLoop(timestamp) {
+    if (!isPaused || stepRequested) {
+        update(1000/60); // Use fixed time step
+        draw();
+        stepRequested = false; // Reset step
+    }
+    if (!isPaused || stepRequested) {
+        requestAnimationFrame(gameLoop);
+    }
+}
+// Button handler
+function onStepClick() {
+    stepRequested = true;
+    if (isPaused) requestAnimationFrame(gameLoop);
+}

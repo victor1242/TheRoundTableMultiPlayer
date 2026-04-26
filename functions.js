@@ -34,10 +34,14 @@ function getSuitIcon(suit) {
   return suitIcons[suit] || "";
 }
 
-function showMessage(msg) {
-  if (game.DEBUG) alert(msg);
-  console.log(msg);
-} 
+function showMessage(type,msg) {
+  if (type === "user") 
+    {
+    if (game.DEBUG) alert(msg);
+       console.log(msg);
+    }
+  else console.log(msg);
+}
 
 function debugLog(...args) {
   if (!game.DEBUG) return;
@@ -167,7 +171,7 @@ game.currentPlayer = [game.currentPlayerIndex];
 updateCurrentPlayerReference();
 game.currentPlayer = game.players[game.currentPlayerIndex];
 if (game.currentPlayer.hand.length + game.currentPlayer.meldSets.length === game.cardsDealt + 1) {
-    showMessage("you have already drawn a card this turn", game.currentPlayer.name);
+    showMessage("user","you have already drawn a card this turn", game.currentPlayer.name);
     return;
   }
   if (game.discardPile.length === 0) {
@@ -250,7 +254,7 @@ function displayCardBack(cardId) {
   cardImg.width = game.cardWidth;
   cardImg.height = game.cardHeight;
   cardImg.src = "./cards/back.png";
-  showMessage( cardImg.src  + cardId);
+  showMessage("TRACE", cardImg.src  + cardId);
   document.getElementById(cardId).innerHTML = "";
   document.getElementById(cardId).append(cardImg);
 }
@@ -432,7 +436,7 @@ function NextRound() {
       message += `\n${position}: ${player.name} - ${player.score} points`;
     });
     
-    alert(message);
+    showMessage("USER", message);
     console.log("[NextRound] Final scores:", finalScores);
     
     // Save final state and update directory
@@ -589,14 +593,76 @@ function dealNewRoundCards() {
 }
 
 function testA() { 
-//  renderGamesDirectory()
-//  filteredLSByKeys()
-//return
-
-//storeGameState(game);
- // getDiscardCard(card)
-  let x=0
+  const testData = generateRummyTestCases(5);
+  console.log(JSON.stringify(testData, null, 2));
     
+}
+
+/**
+ * Rummy Test Case Generator
+ * Generates combinations of sets, sequences, and invalid hands.
+ */
+
+const SUITS = ['H', 'D', 'C', 'S', '+']; // Hearts, Diamonds, Clubs, Spades. stars
+const VALUES = ['3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K'];
+
+// Helper: Generate a single card
+const createCard = (value, suit) => ({ value, suit, id: `${value}${suit}` });
+
+// Helper: Shuffle Array
+const shuffle = (array) => array.sort(() => Math.random() - 0.5);
+
+// 1. Generate Valid Set (3-4 of same value)
+function generateSet(count = 3) {
+  const value = VALUES[Math.floor(Math.random() * VALUES.length)];
+  const shuffledSuits = shuffle([...SUITS]);
+  return shuffledSuits.slice(0, count).map(suit => createCard(value, suit));
+}
+
+// 2. Generate Valid Sequence (3+ consecutive same suit)
+function generateSequence(length = 3) {
+  const suit = SUITS[Math.floor(Math.random() * SUITS.length)];
+  const startIdx = Math.floor(Math.random() * (VALUES.length - length + 1));
+  return VALUES.slice(startIdx, startIdx + length).map(value => createCard(value, suit));
+}
+
+// 3. Generate Invalid Hand (Mixed, wrong sequence, etc.)
+function generateInvalidMeld() {
+  return [
+    createCard('5', 'H'),
+    createCard('6', 'H'),
+    createCard('8', 'H'), // Missing 7
+    createCard('T', 'S')  // Wrong suit
+  ];
+}
+
+// Generator Factory
+function generateRummyTestCases(numCases = 5) {
+  const testCases = [];
+  for (let i = 0; i < numCases; i++) {
+    const type = Math.random();
+    let hand;
+    let expected;
+
+    if (type < 0.3) {
+      hand = generateSet(3);
+      expected = 'valid_set';
+    } else if (type < 0.6) {
+      hand = generateSequence(Math.floor(Math.random() * 3) + 3);
+      expected = 'valid_sequence';
+    } else {
+      hand = generateInvalidMeld();
+      expected = 'invalid';
+    }
+
+    testCases.push({
+      id: i + 1,
+      hand: hand.map(c => c.id),
+      expected: expected,
+      description: `Testing ${expected}`
+    });
+  }
+  return testCases;
 }
 
 function testB() { 
@@ -617,7 +683,7 @@ function draw() {
   if (game.currentPlayer.hand.length +
     game.currentPlayer.meldSets.length >= 
     game.cardsDealt + 1){
-    showMessage("you have already drawn a card this turn")  
+    showMessage("user", "you have already drawn a card this turn")  
     return;
       }
 
@@ -626,7 +692,7 @@ function draw() {
   game.currentPlayer = game.players[game.currentPlayerIndex]; 
  // if (typeof game.deck.draw === 'function') {
   //  const card = game.deck.draw();} 
- // else showMessage ("call to game.deck.draw() corrupted")  
+ // else showMessage ('DEBUG',"call to game.deck.draw() corrupted")  
     const card = game.deck.draw();
  
     while (!card) {
@@ -677,9 +743,12 @@ function draw() {
 
 
   function Meld() {
-  game.currentPlayer = game.players[game.currentPlayerIndex];
+  if ((game.currentPlayer.meldCount + game.currentPlayer.hand.length + 1) < game.cardsDealt + 1 )
+  { 
+  showMessage ( "user","you must draw a card before melding");
+  return;
+  }
   updateCurrentPlayerReference();
-  game.currentPlayer = game.players[game.currentPlayerIndex];
   updatePlayerPrompt('');
   if (game.currentPlayer.meldCount === 0) {
     if (game.currentPlayer.melding) {
@@ -699,7 +768,7 @@ function draw() {
   // Identify cards in hand flagged for melding.
   const selectedCards = getSelectedMeldCards(game.currentPlayer);
 
-// check if meld is valid, if so move cards from hand to meldSets, if not alert user and reset meldCards and borders  
+// check if meld is valid, if so move cards from hand to meldSets, if not showMessage user and reset meldCards and borders  
 
   const meldResult = validateMeld(selectedCards);
   if (!meldResult.valid) {
@@ -712,13 +781,13 @@ function draw() {
       player: game.currentPlayer?.name,
       selected: selectedCards.map((c) => `${String(c.rank)}-${c.suit}`),
     });
-    alert("Invalid Meld");
+    showMessage("user", "Invalid Meld");
     selectedCards=[]
     return;
   }
 
   if (selectedCards.length > game.cardsDealt) {
-    alert(
+    showMessage(
       `Invalid Meld: too many cards (${selectedCards.length} > ${game.cardsDealt} dealt). Did you include the discard?`,
     );
     // Reset meld mode and clear selections
@@ -740,7 +809,7 @@ function draw() {
     return;
   }
 
-  showMessage("Valid Meld");
+  showMessage("user", "Valid Meld");
   debugLog("meld accepted", {
     player: game.currentPlayer?.name,
     selectedCount: selectedCards.length,
@@ -786,9 +855,9 @@ function draw() {
       console.log(`[Meld] Set IsOut=true, finalTurn=true for ${game.currentPlayer.name}`);
    
       if (!game.currentPlayer.aiPlayer && game.AIPlayers !== game.players.length) {
-        alert(game.currentPlayer.name + " you have gone out!");
+        showMessage("user", game.currentPlayer.name + " you have gone out!");
       } else {
-        showMessage(game.currentPlayer.name + " you have gone out!");
+        showMessage("user",     game.currentPlayer.name + " you have gone out!");
       }
       advanceTurn()
       
@@ -877,7 +946,7 @@ function validateMeld(group, options = {}) {
   const silent = Boolean(options.silent);
 
   if (!group || group.length < 3) {
-    if (!silent) showMessage("[validateMeld] Invalid: less than 3 cards");
+    if (!silent) showMessage("user", "[validateMeld] Invalid: less than 3 cards");
     return { valid: false };
   }
   const wildRank = String(game.roundNumber + 2);
@@ -899,14 +968,14 @@ function validateMeld(group, options = {}) {
   const uniqueSuits = [...new Set(suitsArr)];
 
   if (!silent) {
-    showMessage(
+    showMessage("TRACE",
       "[validateMeld] Attempted meld:",
       group.map((c) => `${c.rank}-${c.suit}`),
     );
   }
 
   if (uniqueRanks.length === 0 && uniqueSuits.length === nonJokers.length) {
-    if (!silent) showMessage("[validateMeld] Valid set");
+    if (!silent) showMessage("user", "[validateMeld] Valid set");
     return { valid: true, type: "set" };
   }
   if (
@@ -915,13 +984,13 @@ function validateMeld(group, options = {}) {
     group.length >= 3 &&
     nonJokers.length + jokers.length === group.length
   ) {
-    if (!silent) showMessage("[validateMeld] Valid set (with wilds/jokers)");
+    if (!silent) showMessage("user", "[validateMeld] Valid set (with wilds/jokers)");
     return { valid: true, type: "set" };
   }
   if (uniqueSuits.length === 1) {
     // check that the unique suit forms a sequence with wilds/jokers filling any gaps
     if ((uniqueRanks.length + jokers.length) < 3) {
-      if (!silent) alert("[validateMeld] Invalid run: not enough cards to fill gaps");
+      if (!silent) showMessage("TRACE", "[validateMeld] Invalid run: not enough cards to fill gaps");
       return { valid: false };
     }
     let values = nonJokers
@@ -932,21 +1001,21 @@ function validateMeld(group, options = {}) {
       gaps += values[i] - values[i - 1] - 1;
     }
     if (!silent) {
-      showMessage(
+      showMessage("TRACE",
         `[validateMeld] Run gaps: ${gaps}, jokers: ${jokers.length}`,
       );
     }
     if (gaps <= jokers.length) {
-      if (!silent) showMessage("[validateMeld] Valid run");
+      if (!silent) showMessage("user","[validateMeld] Valid run");
       return { valid: true, type: "run" };
     } else {
-      if (!silent) showMessage("[validateMeld] Invalid run: too many gaps");
+      if (!silent) showMessage("user", "[validateMeld] Invalid run: too many gaps");
     }
   }
   else {
-    if (!silent) showMessage("[validateMeld] Invalid run: not all same suit");
+    if (!silent) showMessage("user", "[validateMeld] Invalid run: not all same suit");
   }
-  if (!silent) showMessage("[validateMeld] Invalid meld");
+  if (!silent) showMessage("user", "[validateMeld] Invalid meld");
   return { valid: false };
 }
 
@@ -1164,7 +1233,7 @@ function displayNextDiscard() {
   if (game.currentPlayer.hand.length +
     game.currentPlayer.meldSets.length >=
     game.cardsDealt + 1) {
-    showMessage("you have already drawn a card this turn")
+    showMessage("user","you have already drawn a card this turn")
     return;
   }
   if (game.discardPile.length === 0) return null;

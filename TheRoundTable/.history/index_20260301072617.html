@@ -1,0 +1,120 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Five Crowns Deck</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+        <h3>Five Crowns Game v02</h3>
+        <div id="game-info" style="margin-bottom:15px">
+        <span id="round-number">Round: 1</span>
+        <span id="wild-card"></span>     
+            
+        <label style="margin-left:15px"><input type="checkbox" id="debug-toggle"> Debug Mode</label>
+        <label style="margin-left:15px"><input type="checkbox" id="trace-toggle"> Trace Mode</label>
+        <button class="my-button" id="Test">--Test--</button>
+        <button class="my-button" id="meld">--Meld--</button>
+        <button class="my-button" id="unMeld">UnMeld</button>
+        <button class="my-button" id="new-game">--New Game--</button>
+        </div>
+        <div>
+<button  class="p1status" id="p1id">Id:</button>
+<button  class="p1status" id="p1fname">Name:    </button>
+<button  class="p1status" id="p1roundScore">roundScore:</button>
+<button  class="p1status" id="p1gameScore">gameScore:</button>
+<button  class="p1status" id="p1IsOut">Is Out:</button>
+<button  class="p1status" id="p1melding">melding:</button>
+</div>
+        <div id="p1prompt" style="font-size:16px; text-align:center;"></div>          
+        <div class="container">
+        <span id="player1name" ></span>
+        </div>
+
+        <button  class="p1card" id="p1card1"></button>
+        <button  class="p1card" id="p1card2"></button>
+        <button  class="p1card" id="p1card3"></button>
+        <button  class="p1card" id="p1card4"></button>
+        <button  class="p1card" id="p1card5"></button>
+        <button  class="p1card" id="p1card6"></button>
+        <button  class="p1card" id="p1card7"></button>
+        <button  class="p1card" id="p1card8"></button>
+        <button  class="p1card" id="p1card9"></button>
+        <button  class="p1card" id="p1card10"></button>
+        <button  class="p1card" id="p1card11"></button>
+        <button  class="p1card" id="p1card12"></button>
+
+
+        <div></div>
+        
+<button  class="p2status" id="p2id">Id:</button>
+<button  class="p2status" id="p2fname">Name:</button>
+<button  class="p2status" id="p2roundScore">roundScore:</button>
+<button  class="p2status" id="p2gameScore">gameScore:</button>
+<button  class="p2status" id="p2IsOut">Is Out:</button>
+<button  class="p2status" id="p2melding">melding:</button>
+<div id="p2prompt" style="font-size:16px; text-align:center;"></div>
+        <div>
+        </div>  
+        <div class="container">
+        <span id="player2name"></span>
+        </div>
+       
+        <button  class="p2card" id="p2card1"></button>
+        <button  class="p2card" id="p2card2"></button>
+        <button  class="p2card" id="p2card3"></button>
+        <button  class="p2card" id="p2card4"></button>
+        <button  class="p2card" id="p2card5"></button>
+        <button  class="p2card" id="p2card6"></button>
+        <button  class="p2card" id="p2card7"></button>
+        <button  class="p2card" id="p2card8"></button>
+        <button  class="p2card" id="p2card9"></button>
+        <button  class="p2card" id="p2card10"></button>
+        <button  class="p2card" id="p2card11"></button>
+        <button  class="p2card" id="p2card12"></button>
+        
+        <div></div>
+        <div>
+<button  class="p3status" id="p3id">Id:</button>
+<button  class="p3status" id="p3fname">Name:</button>
+<button  class="p3status" id="p3roundScore">roundScore:</button>
+<button  class="p3status" id="p3gameScore">gameScore:</button>
+<button  class="p3status" id="p3IsOut">Is Out:</button>
+<button  class="p3status" id="p3melding">melding:</button>
+
+        </div> 
+        <div id="p3prompt" style="font-size:16px; text-align:center"></div>
+        <div class="container">
+        <span id="player3name"></span>
+        </div>
+       
+        <button class="p3card" id="p3card1"></button>
+        <button class="p3card" id="p3card2"></button>
+        <button class="p3card" id="p3card3"></button>
+        <button class="p3card" id="p3card4"></button>
+        <button class="p3card" id="p3card5"></button>
+        <button class="p3card" id="p3card6"></button>
+        <button class="p3card" id="p3card7"></button>
+        <button class="p3card" id="p3card8"></button>
+        <button class="p3card" id="p3card9"></button>
+        <button class="p3card" id="p3card10"></button>
+        <button class="p3card" id="p3card11"></button>
+        <button class="p3card" id="p3card12"></button>
+  
+        <div></div>
+
+        <button  class="deck" id="deck" ></button> 
+        
+        <button  class="discard" id="discard"></button>
+        <span id="deck-size"></span>
+        <span id="discard-size"></span>   
+
+        <span id="meld-size">Meld: 0</span>
+        <button id="NextRound">Next Round</button>
+        <button id="scoreboard">ScoreBoard</button>
+        <script src="classes.js"></script>
+        <script src="functions.js"></script>
+        <script src="main.js"></script>
+   </body>
+</html>

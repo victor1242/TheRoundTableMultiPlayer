@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>The Round Table - Points and Levels</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="rules">
+<nav class="rules-nav">
+  <a href="index.html">Game Board</a>
+  <a href="TheRoundTablePlay.html">How to Play</a>
+  <a href="TheRoundTableBooksAndRuns.html">Books and Runs</a>
+  <a href="TheRoundTableWilds.html">Wild Cards</a>
+  <a href="TheRoundTableGoingOut.html">Going Out</a>
+  <a href="TheRoundTableWinningTheGame.html">Winning</a>
+  <a href="TheRoundTableDeckComposition.html">Deck</a>
+  <a href="TheRoundTableSinglePlayer.html">Single Player</a>
+  <a href="TheRoundTablePointsAndLevels.html">Points & Levels</a>
+  <a href="ScoreBoard.html">Scoreboard</a>
+</nav>
+
+<main class="rules-content">
+  <h1>Points and Levels</h1>
+
+  <h2>How XP is Earned (Per Round)</h2>
+  <ul>
+    <li>+2 participation</li>
+    <li>+1 if game has more than 2 players</li>
+    <li>+3 if you go out</li>
+    <li>+2 if you finish round rank #1</li>
+  </ul>
+
+  <h2>How Skill Points (SP) are Earned</h2>
+  <p>
+    Raw SP is the sum of several bonuses, then multiplied by the current room skill multiplier.
+  </p>
+  <p>
+    <strong>SP Gain:</strong> round(rawSkillPoints * skillMultiplier)
+  </p>
+  <ul>
+    <li>Rank bonus: 1st = +8, 2nd = +4, 3rd = +2</li>
+    <li>Pure set bonus: (pureSets * 2) + max(0, longestPureSet - 3)</li>
+    <li>Pure run bonus: (pureRuns * 3) + max(0, longestPureRun - 3)</li>
+    <li>Went out bonus: +4</li>
+    <li>No-assist bonus: +5 when all hints/warnings are off</li>
+  </ul>
+
+  <h2>Level Formula</h2>
+  <p>
+    <strong>progressScore = XP + (SP * 2)</strong>
+  </p>
+  <p>
+    Your level is based on progressScore and clamped from 0 to 9.
+  </p>
+
+  <h2>Level Thresholds</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Level</th>
+        <th>Minimum Progress Score</th>
+        <th>Rank Name</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>0</td><td>0</td><td>Serf</td></tr>
+      <tr><td>1</td><td>100</td><td>Peasant</td></tr>
+      <tr><td>2</td><td>250</td><td>Squire</td></tr>
+      <tr><td>3</td><td>500</td><td>Man-at-Arms</td></tr>
+      <tr><td>4</td><td>850</td><td>Knight</td></tr>
+      <tr><td>5</td><td>1300</td><td>Banneret</td></tr>
+      <tr><td>6</td><td>1900</td><td>Baron</td></tr>
+      <tr><td>7</td><td>2600</td><td>Lord</td></tr>
+      <tr><td>8</td><td>3400</td><td>High Lord</td></tr>
+      <tr><td>9</td><td>4300</td><td>Roundtable Champion</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Room Tiers and SP Multipliers</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Room</th>
+        <th>Multiplier</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Beginner's Hall</td><td>1.0x</td></tr>
+      <tr><td>Common Room</td><td>1.25x</td></tr>
+      <tr><td>Knight's Hall</td><td>1.5x</td></tr>
+      <tr><td>The Roundtable</td><td>2.0x</td></tr>
+      <tr><td>Champion's Chamber</td><td>3.0x</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    Tip: You can also view the development reference at <a href="GAME_POINTS_LEVELS_REFERENCE.md">GAME_POINTS_LEVELS_REFERENCE.md</a>.
+  </p>
+</main>
+</body>
+</html>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Five Crowns Game Report</title>
+  <title>The Round Table Game Report</title>
   <link rel="stylesheet" href="style.css">
   <style>
     body { font-family: Arial, sans-serif; }
@@ -129,21 +129,32 @@
       background: #e1c09c;
       color: #332010;
     }
+    .score-rank-badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 8px;
+      border-radius: 999px;
+      border: 1px solid #566178;
+      background: #f5f8ff;
+      color: #243046;
+      font-size: 0.72em;
+      font-weight: 700;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    .score-progress-line {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.72em;
+      color: #42506a;
+      font-weight: 700;
+    }
   </style>
 </head>
 <body class="rules">
-  <nav class="rules-nav">
-    <a href="index.html">Game Board</a>
-    <a href="5CrownPlay.html">How to Play</a>
-    <a href="5CrownBooksAndRuns.html">Books and Runs</a>
-    <a href="5CrownWilds.html">Wild Cards</a>
-    <a href="5CrownGoingOut.html">Going Out</a>
-    <a href="5CrownWinningTheGame.html">Winning</a>
-    <a href="5CrownsDeckComposition.html">Deck</a>
-    <a href="5CrownsSinglePlayer.html">Single Player</a>
-    <a href="ScoreBoard.html">Scoreboard</a>
-  </nav>
-  <h2 style="text-align: center">Five Crowns Game Board Scores V02</h2>
+    <h2 style="text-align: center; color: black; font-weight: 900;">The Round Table Game Report V02</h2>
+    <h3 id="scoreboard-game-id" style="text-align: center; color: black; font-weight: 900;">Game ID: (not set)</h3>
+  <h3 id="scoreboard-game-room" style="text-align: center; color: black; font-weight: 900;">Game Room: (not set)</h3>
   <div class="score-legend" aria-label="Suit color legend">
     <span class="score-card" style="color:red;">Hearts/Diamonds</span>
     <span class="score-card" style="color:black;">Spades/Clubs</span>
@@ -154,6 +165,16 @@
     <span class="rank-chip second">2nd place</span>
     <span class="rank-chip third">3rd place</span>
   </div>
+  <nav class="rules-nav" style="text-align: center;" aria-label="Navigation links to game rules and sections">
+    <a href="index.html">Game Board</a>
+    <a href="TheRoundTablePlay.html">How to Play</a>
+    <a href="TheRoundTableBooksAndRuns.html">Books and Runs</a>
+    <a href="TheRoundTableWilds.html">Wild Cards</a>
+    <a href="TheRoundTableGoingOut.html">Going Out</a>
+    <a href="TheRoundTableWinningTheGame.html">Winning</a>
+    <a href="TheRoundTableDeckComposition.html">Deck</a>
+    <a href="TheRoundTableSinglePlayer.html">Single Player</a>
+  </nav>
 <!-- or using the unicode character directly -->
   <div class="scoreboard-scroll">
     <table id="Scoring">
@@ -167,6 +188,11 @@
     let Data = [];
     try {
       const currentGameId = localStorage.getItem('CurrentGameId');
+      const gameIdEl = document.getElementById('scoreboard-game-id');
+      if (gameIdEl) {
+        gameIdEl.textContent = `Game ID: ${currentGameId || '(not set)'}`;
+      }
+
       const scoreKey = currentGameId
         ? `scoreboard_data_${currentGameId}`
         : 'scoreboard_data';
@@ -184,6 +210,18 @@
 
       function formatCardValue(card) {
         if (!card && card !== 0) return '';
+
+        function abbreviateRank(rankValue) {
+          const raw = String(rankValue ?? '').trim();
+          const key = raw.toLowerCase();
+          const rankMap = {
+            jack: 'J',
+            queen: 'Q',
+            king: 'K',
+            jester: 'Js',
+          };
+          return rankMap[key] || raw.toUpperCase();
+        }
 
         let rank = '';
         let suit = '';
@@ -220,7 +258,7 @@
           return `<span class="card-chip neutral">${label}</span>`;
         }
 
-        const displayRank = String(rank || '').toUpperCase();
+        const displayRank = abbreviateRank(rank);
         return `<span class="card-chip ${suitInfo.cls}">${displayRank}${suitInfo.icon}</span>`;
       }
 
@@ -262,6 +300,16 @@
 
         if (Array.isArray(player?.melds)) return listMarkup(player.melds);
         return player?.melds ?? '';
+      }
+
+      function renderRankBadge(player) {
+        const level = Number(player?.level ?? 0);
+        const rankName = player?.rankName || 'Serf';
+        const xpGain = Number(player?.xpGain ?? 0);
+        const spGain = Number(player?.spGain ?? 0);
+        const rankBadge = `<span class="score-rank-badge" title="Level ${level}">${rankName}</span>`;
+        const gains = `<span class="score-progress-line">XP +${xpGain} | SP +${spGain}</span>`;
+        return `${rankBadge}${gains}`;
       }
 
       function getEffectiveGameScore(player) {
@@ -312,21 +360,28 @@
       const tbody = table.querySelector('tbody');
       let roundNo = 0;
       data.forEach((roundObj) => {
+        const roomTier = roundObj?.roomTier ?? 'Unknown Tier';
+        const gameRoomEl = document.getElementById('scoreboard-game-room');
+        if (gameRoomEl) {
+          gameRoomEl.textContent = `Game Room: ${roomTier || '(not set)'}`;
+        }
+
         let wentOut = 0;
         const bonusEnabled = Boolean(roundObj?.optGoingOutBonus);
         roundObj.players.forEach((player) => {
           if (player.IsOut) wentOut++;
         });
         let dealtCards = 0;
-        let errorMsg = "";
+        let roundErrorMsg = "";
         if (roundObj.round !== roundNo + 1) {
-          errorMsg = `Error: Expected Round ${roundNo + 1} but found Round ${roundObj.round}`;
+          roundErrorMsg = `Error: Expected Round ${roundNo + 1} but found Round ${roundObj.round}`;
         }
 
         const rankMap = buildRankMap(roundObj.players);
 
         roundObj.players.forEach((player, idx) => {
           const tr = document.createElement('tr');
+          let errorMsg = roundErrorMsg;
           // Round cell with rowspan for first player only
           if (idx === 0) {
             tr.innerHTML += `<td class="round-header" rowspan="${roundObj.players.length}">${roundObj.round}</td>`;
@@ -334,7 +389,7 @@
             // corresponds to cards dealt (Round 1 = 3 cards, etc.)
           }
           // Player name
-          tr.innerHTML += `<td>${player.name}</td>`;
+          tr.innerHTML += `<td>${player.name}${renderRankBadge(player)}</td>`;
           // Went Out
           tr.innerHTML += `<td>${player.IsOut ? "Yes" : "No"}</td>`;
           // Went Out Bonus - handle null/NaN
@@ -355,12 +410,18 @@
           tr.innerHTML += `<td>${renderHandCell(player)}</td>`;
           tr.innerHTML += `<td>${renderMeldSetsCell(player)}</td>`;
           // Error
-          if (wentOut === 0) {
-            errorMsg = "N/A - No one went out";
-          } else {
-            if (player.cards !== dealtCards) { 
-              errorMsg = `Error: ${player.cards} card(s) accounted for, but ${dealtCards} were dealt.`;
-            }
+          // Card accounting should match cards dealt for this round for every player.
+          // In this data model, all players are expected to total round + 2 cards.
+          const expectedCards = dealtCards;
+          const accountedCards = Number(player.cards);
+          if (!Number.isFinite(accountedCards)) {
+            errorMsg = `Error: Missing or invalid card count (${player.cards}).`;
+          } else if (accountedCards !== expectedCards) {
+            errorMsg = `Error: ${accountedCards} card(s) accounted for, but ${expectedCards} were expected.`;
+          }
+
+          if (!errorMsg && wentOut === 0) {
+            errorMsg = "Error: Invalid round data - no player marked as went out.";
           }
           tr.innerHTML += `<td>${errorMsg}</td>`;
           const rank = rankMap.get(idx);
@@ -376,34 +437,6 @@
     }
     buildTable(Data);
   </script>
-  <button id="return-btn" type="button">Return to Previous Screen</button>
-  <script>
-    (function wireReturnButton() {
-      const returnBtn = document.getElementById('return-btn');
-      if (!returnBtn) return;
-
-      returnBtn.addEventListener('click', () => {
-        // Prefer browser history so users return to the exact page they came from.
-        if (window.history.length > 1) {
-          window.history.back();
-          return;
-        }
-
-        const referrer = document.referrer;
-        if (referrer) {
-          window.location.href = referrer;
-          return;
-        }
-
-        if (window.opener && !window.opener.closed) {
-          window.opener.focus();
-          window.close();
-          return;
-        }
-
-        window.location.href = 'index.html';
-      });
-    })();
-  </script>
+  <button onclick="window.location.href='index.html'">Go to Game Board</button>
 </body>
 </html>

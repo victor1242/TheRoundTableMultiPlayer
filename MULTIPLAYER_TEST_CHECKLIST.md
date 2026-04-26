@@ -9,7 +9,7 @@ Last updated: 2026-03-30
 - [ ] Windows firewall allows inbound TCP 3001 (and 5500 if used)
 - [ ] Both devices open the same URL style:
   - Preferred: http://10.0.0.155:3001/multiplayer.html
-  - Alternate: http://10.0.0.155:5500/5Crowns/multiplayer.html
+  - Alternate: http://10.0.0.155:5500/TheRoundTableMultiPlayer/multiplayer.html
 
 ## Test Run (2 Players)
 

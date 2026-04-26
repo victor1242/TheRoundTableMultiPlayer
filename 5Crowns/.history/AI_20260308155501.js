@@ -1,1 +1,0 @@
-const topDiscard = game.discardPile[0];

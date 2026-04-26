@@ -256,7 +256,7 @@ function updateGameDirectoryStatus(gameIdOverride) {
   // localStorage.setItem('user_1_data', '...');
   // localStorage.setItem('user_2_data', '...');
   // const userEntries = filteredLSByKeys('user_');
-  // console.log(userEntries); 
+  // showMessage(userEntries); 
 
 
 function renderGamesDirectory() {
@@ -492,7 +492,7 @@ function applyAIConfig(config) {
 
 function toggleDebug() {
   DEBUG = !DEBUG;
-  console.log("DEBUG is now", DEBUG ? "ON" : "OFF");
+  showMessage("TRACE", "DEBUG is now", DEBUG ? "ON" : "OFF");
   const debugToggle = document.getElementById("debug-toggle");
   if (debugToggle) debugToggle.checked = DEBUG;
 }
@@ -501,7 +501,7 @@ function setDebugMode(enabled) {
   DEBUG = Boolean(enabled);
   const debugToggle = document.getElementById("debug-toggle");
   if (debugToggle) debugToggle.checked = DEBUG;
-  console.log("DEBUG is now", DEBUG ? "ON" : "OFF");
+  showMessage("DEBUG is now", DEBUG ? "ON" : "OFF");
 }
 
 function displayCard(card, cardId, mode) {
@@ -521,7 +521,7 @@ function displayCard(card, cardId, mode) {
     existingEl.innerText = "";
     existingEl.append(cardImg);
   } else {
-    showMessage(cardId + " element error: " + card.rank + ": " + card.suit + " " +  cardId);
+    showMessage("DEBUG",cardId + " element error: " + card.rank + ": " + card.suit + " " +  cardId);
   }
 }
 
@@ -589,10 +589,10 @@ function addHandCardListeners() {
     const cardClass = Array.from(cardEl.classList).find((cls) =>
       /^p\d+card$/.test(cls),
     );
-    if (!cardClass) return;
+    if (!cardClass) return;   
 
-    console.log("box clicked", cardEl.id, game.currentPlayer.id);
-    console.log("Image Source:", cardEl.className);
+    showMessage("TRACE", "box clicked", cardEl.id, game.currentPlayer.id);
+    showMessage("TRACE", "Image Source:", cardEl.className);
 
     if (cardEl.id.substring(0,6)  === "player")
       {
@@ -634,7 +634,7 @@ function discardCardSelected(cardEl) {
 
         // discard selected card from hand to discard pile
         let xCard = game.currentPlayer.hand.splice(handIndex, 1)[0];
-        showMessage(xCard.rank + " of " + xCard.suit + " discarded.");
+  showMessage("user", xCard.rank + " of " + xCard.suit + " discarded.");
         renderPlayerHand(game.currentPlayer);
        // game.discardPile.push(xCard);
         dropDiscardCard(xCard)
@@ -642,14 +642,14 @@ function discardCardSelected(cardEl) {
         displayCard(xCard, "discard-card", "discard" );
 
         if (game.currentPlayer.hand.length === 0) {
-          console.log(`[discardCardSelected] *** PLAYER GOING OUT *** ${game.currentPlayer.name} has no cards left!`);
+          showMessage("user", `[discardCardSelected] *** PLAYER GOING OUT *** ${game.currentPlayer.name} has no cards left!`);
           PlayerHandBlinkOn("." + game.currentPlayer.id + "card");
           game.currentPlayer.IsOut = true;
           game.finalTurn = true;
-          console.log(`[discardCardSelected] Set IsOut=true, finalTurn=true for ${game.currentPlayer.name}`)
+          showMessage("user", `[discardCardSelected] Set IsOut=true, finalTurn=true for ${game.currentPlayer.name}`)
       
           if (!game.currentPlayer.aiPlayer) 
-            alert(game.currentPlayer.name + " you have gone out!");
+            showMessage("user", game.currentPlayer.name + " you have gone out!");
           }
          advanceTurn();
       }
@@ -696,23 +696,17 @@ function discardFromHand(player, handIndex, options = {}) {
     selectedCard?.rank === "joker" || selectedCard?.rank === wildRank;
   if (isWild && playerWhoWentOut === -1 && hasNonWild && !isFinalTurn && !isLastCard) {
     if (!player.aiPlayer) {
-      alert("You cannot discard a wild card until the final turn phase begins.");
+      showMessage("You cannot discard a wild card until the final turn phase begins.");
     }
     return false;
   }
 
   const meldedCount = getMeldedCardCount(player);
   const totalCards = meldedCount + player.hand.length;
-  if (player.hand.length === 1 && totalCards < game.cardsDealt) {
-    if (!player.aiPlayer) {
-      alert("You must meld all cards before discarding your last card.");
-    }
-    console.log(`[Discard Check] ${player.name} cannot go out: melded=${meldedCount}, hand=${player.hand.length}, total=${totalCards}, required=${game.cardsDealt}`);
-    return false;
-  }
+ 
 
   const xCard = player.hand.splice(handIndex, 1)[0];
-  showMessage(xCard.rank + " of " + xCard.suit + " discarded.");
+  showMessage("user", xCard.rank + " of " + xCard.suit + " discarded.");
   renderPlayerHand(player);
   game.discardPile.push(xCard);
   updateDisplay()
@@ -721,13 +715,13 @@ function discardFromHand(player, handIndex, options = {}) {
   displayCard(xCard, "discard-card", "discard");
 
   if (player.hand.length === 0) {
-    console.log(`[discardFromHand] *** PLAYER GOING OUT *** ${player.name} has no cards left!`);
+    showMessage("user", `[discardFromHand] *** PLAYER GOING OUT *** ${player.name} has no cards left!`);
     player.IsOut = true;
     game.finalTurn = true;
-    console.log(`[discardFromHand] Set IsOut=true, finalTurn=true for ${player.name}`);
+    showMessage("user", `[discardFromHand] Set IsOut=true, finalTurn=true for ${player.name}`);
     
     if (!player.aiPlayer) {
-      alert(player.name + " you have gone out!");
+      showMessage(player.name + " you have gone out!");
     }
   }
   advanceTurn();
@@ -745,7 +739,7 @@ function enableAIAutoPlay() {
   aiAutoPlayEnabled = true;
   game.aiAutoPlayEnabled = true;
   localStorage.setItem(AI_AUTO_PLAY_STORAGE_KEY, "true");
-  console.log("AI Auto-Play ENABLED");
+  showMessage("TRACE", "AI Auto-Play ENABLED");
   
   if (game.currentPlayer.aiPlayer && !game.aiAutoPlayPaused) {
     scheduleAITurn(1000);
@@ -757,7 +751,7 @@ function disableAIAutoPlay() {
   game.aiAutoPlayEnabled = false;
   clearAIAutoPlayTimer();
   localStorage.setItem(AI_AUTO_PLAY_STORAGE_KEY, "false");
-  console.log("AI Auto-Play DISABLED");
+  showMessage("TRACE", "AI Auto-Play DISABLED");
 }
 
 function clearAIAutoPlayTimer() {
@@ -771,7 +765,7 @@ function scheduleAITurn(delayMs) {
   if (!game.aiAutoPlayEnabled || game.aiAutoPlayPaused) return;
   if (!game.currentPlayer || !game.currentPlayer.aiPlayer) return;
   if (game.roundNumber > game.lastRound) {
-    console.log("[AI] Game is complete, not scheduling AI turn");
+    showMessage("TRACE", "[AI] Game is complete, not scheduling AI turn");
     return;
   }
   const scaledDelay = Math.max(50, Math.round(delayMs / game.aiAutoPlaySpeed));
@@ -813,14 +807,14 @@ function pauseAIAutoPlay() {
   game.aiAutoPlayPaused = true;
   clearAIAutoPlayTimer();
   updateAIPauseButton();
-  console.log("AI Auto-Play PAUSED");
+  showMessage("TRACE", "AI Auto-Play PAUSED");
 }
 
 function resumeAIAutoPlay() {
   game.aiAutoPlayPaused = false;
   updateAIPauseButton();
   updateAIStepButton();
-  console.log("AI Auto-Play RESUMED");
+  showMessage("AI Auto-Play RESUMED");
   if (game.aiAutoPlayEnabled && !game.aiAutoPlayPaused && game.currentPlayer && game.currentPlayer.aiPlayer) {
     scheduleAITurn(500);
   }
@@ -954,7 +948,7 @@ const aiToggle = document.getElementById("ai-auto-play");
         const config = getAIConfigFromUI();
         applyAIConfig(config);
         setAIConfigToUI(config);
-        console.log("[AI Setup] Applied AI config from UI");
+        showMessage("TRACE", "[AI Setup] Applied AI config from UI");
       });
     }
 
@@ -1030,7 +1024,7 @@ function renderAllGameState() {
           game.currentPlayerIndex,
           game.players,
         );
-        alert("Error: No active player found.");
+        showMessage("Error: No active player found.");
       }
     }
   }
@@ -1072,7 +1066,7 @@ function reLoadGameState(gameIdOverride) {
       }
     }
     
-    console.log("Game state restored from localStorage.");
+    showMessage("TRACE", "Game state restored from localStorage.");
 
     updateDeckAndDiscardDisplay();
     return true;

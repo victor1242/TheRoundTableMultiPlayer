@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "express": "^4.21.2",
+    "node.js": "^0.0.1-security",
     "socket.io": "^4.8.1",
     "sweetalert2": "^11.26.23"
   }
