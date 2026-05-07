@@ -1,0 +1,4 @@
+npm run server:start
+node debug-server.js
+curl http://localhost:3001/health
+curl http://localhost:5500/

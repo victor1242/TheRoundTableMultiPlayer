@@ -1,6 +1,6 @@
 /**
  * multiplayerClient.js
- * Client-side Socket.io wrapper for Five Crowns multiplayer.
+ * Client-side Socket.io wrapper for The Round Table multiplayer.
  *
  * Usage: included by multiplayer.html only.
  * Exposes window.MP (the client API).
@@ -30,6 +30,14 @@
   let _lastRoundForOutAnnouncements = null;
   let audioCtx = null;
   let soundEnabled = true;
+  let cardAssetsLoadStarted = false;
+  let cardAssetsReady = false;
+
+  const CARD_IMAGE_BASE = '../cards/';
+  const CARD_IMAGE_SUITS = ['clubs', 'diamonds', 'hearts', 'spades', 'stars'];
+  const CARD_IMAGE_RANK_FILES = ['3', '4', '5', '6', '7', '8', '9', '10', 'jack', 'queen', 'king'];
+  const CARD_ASSET_CACHE_KEY = 'mp_card_assets_cache_marker';
+  const CARD_ASSET_VERSION = 'v1';
 
   // Compatibility shim: older builds may still call window.mgt.clearMarks().
   // Keep it as a no-op helper so stale references do not break current sessions.
@@ -55,6 +63,168 @@
   function hide(id) { const el = $(id); if (el) el.style.display = 'none'; }
   function setText(id, txt) { const el = $(id); if (el) el.textContent = txt; }
   function setHTML(id, html) { const el = $(id); if (el) el.innerHTML = html; }
+
+  function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    }[char]));
+  }
+
+  function updateAssetStatus(message, isError) {
+    const el = $('mp-asset-status');
+    if (!el) return;
+    if (!message) {
+      el.style.display = 'none';
+      el.textContent = '';
+      el.className = 'mp-asset-status';
+      return;
+    }
+    el.style.display = 'block';
+    el.textContent = message;
+    el.className = isError ? 'mp-asset-status error' : 'mp-asset-status';
+  }
+
+  function normalizeSuitForImage(suit) {
+    const normalized = String(suit || '').toLowerCase().trim();
+    if (CARD_IMAGE_SUITS.includes(normalized)) return normalized;
+    return null;
+  }
+
+  function normalizeRankForImage(rank) {
+    const normalized = String(rank || '').toLowerCase().trim();
+    if (/^10$/.test(normalized)) return '10';
+    if (/^9$/.test(normalized)) return '9';
+    if (/^8$/.test(normalized)) return '8';
+    if (/^7$/.test(normalized)) return '7';
+    if (/^6$/.test(normalized)) return '6';
+    if (/^5$/.test(normalized)) return '5';
+    if (/^4$/.test(normalized)) return '4';
+    if (/^3$/.test(normalized)) return '3';
+    if (/^(j|jack)$/.test(normalized)) return 'jack';
+    if (/^(q|queen)$/.test(normalized)) return 'queen';
+    if (/^(k|king)$/.test(normalized)) return 'king';
+    if (/^jester$/.test(normalized)) return 'jester';
+    return null;
+  }
+
+  function cardImageUrl(card) {
+    if (!card || typeof card !== 'object') return '';
+    const rank = normalizeRankForImage(card.rank);
+    const suit = normalizeSuitForImage(card.suit);
+    if (!rank) return '';
+    if (rank === 'jester') return CARD_IMAGE_BASE + 'jester_of_stars.png';
+    if (!suit) return '';
+    return CARD_IMAGE_BASE + rank + '_of_' + suit + '.png';
+  }
+
+  function buildCardAssetManifest() {
+    const urls = [];
+    CARD_IMAGE_RANK_FILES.forEach((rank) => {
+      CARD_IMAGE_SUITS.forEach((suit) => {
+        urls.push(CARD_IMAGE_BASE + rank + '_of_' + suit + '.png');
+      });
+    });
+    urls.push(CARD_IMAGE_BASE + 'jester_of_stars.png');
+    urls.push(CARD_IMAGE_BASE + 'back.png');
+    return urls;
+  }
+
+  function applyDeckBackImage() {
+    const el = $('mp-deck-back');
+    if (!el) return;
+    el.style.backgroundImage = 'url(' + CARD_IMAGE_BASE + 'back.png)';
+    el.style.backgroundSize = 'cover';
+    el.style.backgroundPosition = 'center';
+    el.style.backgroundRepeat = 'no-repeat';
+  }
+
+  function readCardCacheMarker() {
+    try {
+      const raw = localStorage.getItem(CARD_ASSET_CACHE_KEY);
+      if (!raw) return null;
+      const marker = JSON.parse(raw);
+      if (!marker || marker.version !== CARD_ASSET_VERSION) return null;
+      return marker;
+    } catch {
+      return null;
+    }
+  }
+
+  function writeCardCacheMarker(durationMs, total, failed) {
+    try {
+      localStorage.setItem(CARD_ASSET_CACHE_KEY, JSON.stringify({
+        version: CARD_ASSET_VERSION,
+        ts: Date.now(),
+        durationMs,
+        total,
+        failed,
+      }));
+    } catch {
+      // Ignore localStorage errors.
+    }
+  }
+
+  function markerSummary(marker) {
+    if (!marker || !marker.ts) return '';
+    const time = new Date(marker.ts).toLocaleString();
+    const ms = Number(marker.durationMs) || 0;
+    return 'Last cached: ' + time + ' (' + ms + ' ms)';
+  }
+
+  function preloadCardAssets() {
+    if (cardAssetsLoadStarted) return;
+    cardAssetsLoadStarted = true;
+    applyDeckBackImage();
+
+    const manifest = buildCardAssetManifest();
+    const total = manifest.length;
+    const startMs = performance.now();
+    const previousMarker = readCardCacheMarker();
+    let loaded = 0;
+    let failed = 0;
+
+    const previousSummary = markerSummary(previousMarker);
+    updateAssetStatus('Loading card images... 0/' + total + (previousSummary ? ' | ' + previousSummary : ''), false);
+
+    Promise.all(manifest.map((url) => new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        loaded += 1;
+        updateAssetStatus('Loading card images... ' + loaded + '/' + total, false);
+        resolve();
+      };
+      img.onerror = () => {
+        loaded += 1;
+        failed += 1;
+        updateAssetStatus('Loading card images... ' + loaded + '/' + total, false);
+        resolve();
+      };
+      img.src = url;
+    }))).then(() => {
+      cardAssetsReady = failed < total;
+      const durationMs = Math.round(performance.now() - startMs);
+      writeCardCacheMarker(durationMs, total, failed);
+      if (failed === 0) {
+        updateAssetStatus('Card images ready in ' + durationMs + ' ms.', false);
+      } else if (cardAssetsReady) {
+        updateAssetStatus('Card images loaded in ' + durationMs + ' ms with ' + failed + ' missing file(s).', true);
+      } else {
+        updateAssetStatus('Card images unavailable after ' + durationMs + ' ms. Using text fallback.', true);
+      }
+
+      setTimeout(() => {
+        updateAssetStatus('', false);
+      }, 2200);
+
+      if (latestState && latestState.game) {
+        render(latestState);
+      }
+    });
+  }
 
   function aiBadgeHTML() {
     // Android-like robot icon used to indicate AI takeover for offline players.
@@ -181,16 +351,24 @@
 
   function cardHTML(card, index, isSelected, isDiscardable) {
     if (!card) return '';
+    const imageUrl = cardImageUrl(card);
     const icon = SUIT_ICONS[card.suit] || card.suit;
     const colour = SUIT_COLOURS[card.suit] || '#000';
     const selectedClass = isSelected ? ' selected' : '';
-    const discardClass = isDiscardable ? ' discardable' : '';
+    const title = escapeHTML(card.rank + ' of ' + card.suit);
+    const image = imageUrl && cardAssetsReady
+      ? `<img class="mp-card-media" src="${imageUrl}" alt="${title}" loading="eager" decoding="async" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
+      : '';
+    const fallbackDisplay = (imageUrl && cardAssetsReady) ? 'none' : 'flex';
     return `<button class="mp-card${selectedClass}${discardable(isDiscardable)}"
               data-index="${index}"
               style="color:${colour}"
-              title="${card.rank} of ${card.suit}">
-              <span class="card-rank">${card.rank}</span>
-              <span class="card-suit">${icon}</span>
+              title="${title}">
+              ${image}
+              <span class="mp-card-fallback" style="display:${fallbackDisplay}">
+                <span class="card-rank">${card.rank}</span>
+                <span class="card-suit">${icon}</span>
+              </span>
             </button>`;
   }
 
@@ -198,9 +376,18 @@
 
   function cardFaceHTML(card) {
     if (!card) return '<span class="mp-card empty">—</span>';
+    const imageUrl = cardImageUrl(card);
     const icon = SUIT_ICONS[card.suit] || card.suit;
     const colour = SUIT_COLOURS[card.suit] || '#000';
-    return `<span class="mp-card face" style="color:${colour}">${card.rank} ${icon}</span>`;
+    const title = escapeHTML(card.rank + ' of ' + card.suit);
+    const image = imageUrl && cardAssetsReady
+      ? `<img class="mp-card-media" src="${imageUrl}" alt="${title}" loading="lazy" decoding="async" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
+      : '';
+    const fallbackDisplay = (imageUrl && cardAssetsReady) ? 'none' : 'flex';
+    return `<span class="mp-card face" style="color:${colour}">
+      ${image}
+      <span class="mp-card-fallback" style="display:${fallbackDisplay}">${card.rank} ${icon}</span>
+    </span>`;
   }
 
   // ── Connect ───────────────────────────────────────────────────────────────
@@ -992,6 +1179,7 @@
   function init() {
     ensureLegacyMgtCompatibility();
     wireButtons();
+    preloadCardAssets();
 
     // Auto-connect if session data exists
     const saved = loadSession();

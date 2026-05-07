@@ -56,7 +56,7 @@ function shouldTakeDiscard(discardCard, hand, wildRank) {
   const wRank = String(wildRank);
 
   // Always take wilds, unless hand can already go out (protect winning state)
-  if (discardCard.rank === 'joker' || discardCard.rank === wRank) {
+  if (discardCard.rank === 'jester' || discardCard.rank === wRank) {
     return !findPossibleMelds(hand, wildRank).some((m) => m.remainingCards <= 1);
   }
 
@@ -82,11 +82,11 @@ function chooseDiscard(hand, wildRank, isFinalTurn) {
   if (hand.length === 1) return 0;
   const wRank = String(wildRank);
 
-  // On the final turn wilds are a liability — discard jokers first (50 pts each),
+  // On the final turn wilds are a liability — discard jesters first (50 pts each),
   // then round-wild cards (20 pts each), then fall through to normal logic.
   if (isFinalTurn) {
-    const jokerIdx = hand.findIndex((c) => c.rank === 'joker');
-    if (jokerIdx !== -1) return jokerIdx;
+    const jesterIdx = hand.findIndex((c) => c.rank === 'jester');
+    if (jesterIdx !== -1) return jesterIdx;
     const wildIdx = hand.findIndex((c) => c.rank === wRank);
     if (wildIdx !== -1) return wildIdx;
   }
@@ -96,14 +96,14 @@ function chooseDiscard(hand, wildRank, isFinalTurn) {
 
   hand.forEach((card, i) => {
     // Outside final turn, protect wilds — they are too useful to discard
-    if (!isFinalTurn && (card.rank === 'joker' || card.rank === wRank)) return;
+    if (!isFinalTurn && (card.rank === 'jester' || card.rank === wRank)) return;
 
     let score = card.value || 0;
 
     // Bonus for cards with no adjacent same-suit neighbour within 2 ranks
     const hasNeighbour = hand.some((other, j) => {
       if (j === i) return false;
-      if (other.rank === 'joker' || other.rank === wRank) return true;
+      if (other.rank === 'jester' || other.rank === wRank) return true;
       if (other.suit !== card.suit) return false;
       return Math.abs((other.value || 0) - (card.value || 0)) <= 2;
     });

@@ -1,7 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('crypto');
-const { FiveCrownsGame } = require('../game/fiveCrownsGame');
+const { TheRoundTableGame } = require('../game/TheRoundTableGame');
 
 function toSafeName(name) {
   const trimmed = String(name || '').trim();
@@ -13,7 +13,7 @@ class GameRoom {
     this.code = code;
     this.createdAt = Date.now();
     this.players = [];   // { id, name, socketId, connected }
-    this.game = null;    // FiveCrownsGame instance
+    this.game = null;    // TheRoundTableGame instance
     this.phase = 'lobby';
   }
 
@@ -83,7 +83,7 @@ class GameRoom {
     if (this.players.length < 2) throw new Error('Need at least 2 players to start');
     if (this.phase === 'playing') throw new Error('Game already started');
     const playerIds = this.players.map((p) => p.id);
-    this.game = new FiveCrownsGame(playerIds);
+    this.game = new TheRoundTableGame(playerIds);
     this.game.startRound();
     this.phase = 'playing';
   }

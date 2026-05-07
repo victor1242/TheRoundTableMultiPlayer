@@ -1,4 +1,5 @@
-const express = require("express");
+const express = 
+require("express");
 const http = require("http");
 const path = require("path");
 const { Server } = require("socket.io");
@@ -18,11 +19,11 @@ const io = new Server(server, {
 const PORT = Number(process.env.PORT) || 3001;
 const roomManager = createRoomManager(io);
 
-// Serve the multiplayer client page and its JS from the 5Crowns folder
-app.use(express.static(path.join(__dirname, "..", "5Crowns")));
+// Serve the multiplayer client page and its JS from the TheRoundTable  folder
+app.use(express.static(path.join(__dirname, "..", "TheRoundTable")));
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "5crowns-multiplayer", ts: Date.now() });
+  res.json({ ok: true, service: "TheRoundTable - multiplayer", ts: Date.now() });
 });
 
 io.on("connection", (socket) => {

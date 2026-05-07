@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Validates whether a group of cards forms a legal Five Crowns meld.
+ * Validates whether a group of cards forms a legal The Round Table meld.
  * Ported from the client-side validateMeld() in functions.js.
  *
  * @param {Array<{rank:string, suit:string}>} group  - Cards to validate

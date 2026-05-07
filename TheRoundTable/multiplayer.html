@@ -22,6 +22,16 @@
     /* ── Status bar ─────────────────────────────────────────── */
     .mp-status { padding: 6px 10px; border-radius: 4px; margin-bottom: 10px; background: #2d7a2d; font-size: .9rem; }
     .mp-status.error { background: #8b0000; }
+    .mp-asset-status {
+      display: none;
+      padding: 6px 10px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      background: #184b74;
+      font-size: .85rem;
+      opacity: .95;
+    }
+    .mp-asset-status.error { background: #8b0000; }
 
     /* ── Lobby ──────────────────────────────────────────────── */
     #mp-lobby { max-width: 440px; background: #0f3d0f; border-radius: 8px; padding: 20px; }
@@ -114,6 +124,26 @@
     .mp-card.empty { background: transparent; border-color: #555; color: #888; cursor: default; }
     .mp-card .card-rank { font-weight: bold; font-size: 1rem; }
     .mp-card .card-suit  { font-size: 1.1rem; }
+    .mp-card-media {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 4px;
+      pointer-events: none;
+    }
+    .mp-card-fallback {
+      display: none;
+      width: 100%;
+      height: 100%;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    .mp-card.face .mp-card-media {
+      width: 56px;
+      height: 84px;
+    }
     #mp-discard-card .mp-card { cursor: default; }
     #mp-discard-card .mp-card.face {
       width: 60px;
@@ -168,6 +198,7 @@
     @media (max-width: 600px) {
       .game-header { flex-direction: column; align-items: flex-start; }
       .mp-card { width: 48px; height: 70px; }
+      .mp-card.face .mp-card-media { width: 44px; height: 66px; }
       #mp-discard-card .mp-card.face { width: 48px; height: 70px; }
     }
   </style>
@@ -176,6 +207,7 @@
 
 <h1>🃏 Five Crowns – Multiplayer</h1>
 <div id="mp-status" class="mp-status">Not connected</div>
+<div id="mp-asset-status" class="mp-asset-status">Loading card images...</div>
 
 <!-- ═══════════════════════ LOBBY ═══════════════════════════════ -->
 <div id="mp-lobby">

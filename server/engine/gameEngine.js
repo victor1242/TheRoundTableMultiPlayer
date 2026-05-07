@@ -1,5 +1,5 @@
 /**
- * gameEngine.js — Pure Five Crowns game logic
+ * gameEngine.js — Pure The Round Table game logic
  *
  * NO DOM dependencies. No global `game` object.
  * All functions receive state as parameters and return new state / results.
@@ -21,7 +21,7 @@ const RANKS = ['3', '4', '5', '6', '7', '8', '9', '10', 'jack', 'queen', 'king']
 
 const RANK_VALUES = {
   '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8,
-  '9': 9, '10': 10, 'jack': 11, 'queen': 12, 'king': 13, 'joker': 50,
+  '9': 9, '10': 10, 'jack': 11, 'queen': 12, 'king': 13, 'jester': 50,
 };
 
 /** Round 1 = 3 cards dealt … Round 9 = 11 cards dealt */
@@ -48,7 +48,7 @@ function wildRankForRound(roundNumber) {
 class Card {
   /**
    * @param {string} suit  - 'spades' | 'clubs' | 'hearts' | 'diamonds' | 'stars'
-   * @param {string} rank  - '3'..'king' | 'joker'
+   * @param {string} rank  - '3'..'king' | 'jester'
    * @param {number} value - point value (used for scoring)
    */
   constructor(suit, rank, value) {
@@ -70,7 +70,7 @@ class Card {
   }
 
   isWild(wildRank) {
-    return this.rank === 'joker' || this.rank === String(wildRank);
+    return this.rank === 'jester' || this.rank === String(wildRank);
   }
 }
 
@@ -92,11 +92,11 @@ class Deck {
         half.push(new Card(suit, rank, RANK_VALUES[rank]));
       }
     }
-    // 3 jokers per half-deck
+    // 3 jesters per half-deck
     for (let i = 0; i < 3; i++) {
-      half.push(new Card('stars', 'joker', 50));
+      half.push(new Card('stars', 'jester', 50));
     }
-    // Five Crowns uses a double deck — clone each card for independent objects
+    // The Round Table uses a double deck — clone each card for independent objects
     this.cards = [...half, ...half.map(c => c.clone())];
   }
 
@@ -122,7 +122,7 @@ class Deck {
 // ---------------------------------------------------------------------------
 
 /**
- * Validate whether an array of Card objects forms a legal Five Crowns meld.
+ * Validate whether an array of Card objects forms a legal The Round Table meld.
  *
  * @param {Card[]} cards     - Cards the player wants to meld
  * @param {number|string} wildRank - The current round's wild rank (e.g. 3 for round 1)
@@ -131,9 +131,9 @@ class Deck {
  * Rules:
  *   SET  — all non-wild cards share the same rank (suits may vary)
  *   RUN  — all non-wild cards share the same suit with consecutive ranks;
- *           wilds / jokers fill gaps
+ *           wilds / jesters fill gaps
  *   Minimum 3 cards total (including wilds).
- *   Jokers and the current round's rank card both act as wilds.
+ *   jesters and the current round's rank card both act as wilds.
  */
 function validateMeld(cards, wildRank) {
   if (!Array.isArray(cards) || cards.length < 3) {
@@ -141,8 +141,8 @@ function validateMeld(cards, wildRank) {
   }
 
   const wRank    = String(wildRank);
-  const wilds    = cards.filter(c => c.rank === 'joker' || c.rank === wRank);
-  const nonWilds = cards.filter(c => c.rank !== 'joker' && c.rank !== wRank);
+  const wilds    = cards.filter(c => c.rank === 'jester' || c.rank === wRank);
+  const nonWilds = cards.filter(c => c.rank !== 'jester' && c.rank !== wRank);
 
   const rankVal = r => {
     if (r === 'jack')  return 11;
@@ -154,7 +154,7 @@ function validateMeld(cards, wildRank) {
   const uniqueRanks = [...new Set(nonWilds.map(c => c.rank))];
   const uniqueSuits = [...new Set(nonWilds.map(c => c.suit))];
 
-  // All-wild meld (e.g. three jokers) — valid set
+  // All-wild meld (e.g. three jesters) — valid set
   if (nonWilds.length === 0) {
     return { valid: true, type: 'set' };
   }
@@ -212,7 +212,7 @@ function calculateRoundScore(player, wildRank, optGoingOutBonus) {
 
   for (const card of (player.hand || [])) {
     if (!card) continue;
-    if (card.rank === 'joker')      score += 50;
+    if (card.rank === 'jester')      score += 50;
     else if (card.rank === wRank)   score += 20;
     else                            score += (card.value || 0);
   }
@@ -341,11 +341,11 @@ function isRoundOver(newPlayerIndex, players) {
 // ---------------------------------------------------------------------------
 
 function isWild(card, wildRank) {
-  return card.rank === 'joker' || card.rank === String(wildRank);
+  return card.rank === 'jester' || card.rank === String(wildRank);
 }
 
 function cardDisplayValue(card, wildRank) {
-  if (card.rank === 'joker') return 50;
+  if (card.rank === 'jester') return 50;
   if (card.rank === String(wildRank)) return 20;
   return card.value || 0;
 }

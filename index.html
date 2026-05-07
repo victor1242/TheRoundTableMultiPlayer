@@ -3,24 +3,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width">
+
     <title>The Round Table</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <div id="game-info" style="font-size:20px; margin-bottom:15px">
-    <span id="wild-card" style="font-size:20px;"></span>     
-        
-    <label style="margin-left:15px"><input type="checkbox" id="debug-toggle"> Debug Mode</label>
-    <label style="margin-left:15px"><input type="checkbox" id="trace-toggle"> Trace Mode</label>
+    <! div id="game-info" style="font-size:20px; margin-bottom:15px" /div>  
 
-    <label style="margin-left:15px"><input type="checkbox" id="warnWildDiscard">Warn Wild Discard</label>
-    <label style="margin-left:15px"><input type="checkbox"              
-        id="warnWildPickup"> Warn Wild Pickup</label>
-    <label style="margin-left:15px"><input type="checkbox"
-    id="warnWildDiscardLastTurn"> Warn Wild Discard Last Turn</label>
-    <div>   </div>  
-
+    <span id="wild-card" style="font-size:20px;"></span>
     <button class="my-button" id="testA"  >--Test A--</button>
     <button class="my-button" id="testB"  >--Test B--</button>
     <button class="my-button" id="meld" >--Meld--</button>
@@ -37,11 +29,16 @@
 <button  class="p1status"  id="p1gameScore">gameScore:</button>    
 <button  class="p1status"  id="p1IsOut">Is Out:</button>
 <button  class="p1status"  id="p1melding">melding:</button>
+<label style="margin-left:15px"><input type="checkbox" id="debug-toggle"> Debug Mode</label>
+<label style="margin-left:15px"><input type="checkbox" id="trace-toggle"> Trace Mode</label>
+
+<label style="margin-left:15px"><input type="checkbox" id="warnWildDiscard">Warn Wild Discard</label>
+<label style="margin-left:15px"><input type="checkbox" id="warnWildPickup"> Warn Wild Pickup</label>
+<label style="margin-left:15px"><input type="checkbox" id="warnWildDiscardLastTurn"> Warn Wild Discard Last Turn</label>
 </div>
 
 <div id="p1prompt" ></div>
-<div>
-</div>  
+ 
 
 <div class=button-group>
 <div class="p1card playerName button-group" >    
@@ -73,8 +70,7 @@
 </div>
 
 <div id="p2prompt" ></div>
-<div>
-</div>  
+  
 <div class=button-group  >
 <div class="p2card playerName button-group" >
 <span class="p2card" id="player2name"   ></span>
@@ -124,11 +120,10 @@
 <button class='p3card' id="p3card11"></button>
 <button class='p3card' id="p3card12"></button>
 </div>  
-</div>  
+ 
 
 <li></li>
-<li></li>
-<li></li>
+
     
 <div class="card-piles">
     <span class="pile" id="deck-pile">

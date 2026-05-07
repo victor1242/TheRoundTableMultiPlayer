@@ -269,7 +269,7 @@ class GameRoom {
           throw new Error(
             "Invalid meld: "
               + (result.reason || "not a valid set or run")
-              + ". Wild this round: " + wildRank + " and jokers"
+              + ". Wild this round: " + wildRank + " and jesters"
           );
         }
         // Move cards from hand to meldSets
