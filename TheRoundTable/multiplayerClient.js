@@ -22,6 +22,9 @@
   let myPlayerName = '';
   let myRoomCode = '';
   let latestState = null;       // last room:state received
+  let lastStateReceivedAt = 0;
+  let lastLobbyResyncAt = 0;
+  let joinInFlight = false;
   let selectedHandIndices = []; // cards selected for a meld
   let lobbyResyncTimer = null;
   let meldModeActive = false;   // true = selecting cards for melds; false = next card click discards
@@ -32,12 +35,17 @@
   let soundEnabled = true;
   let cardAssetsLoadStarted = false;
   let cardAssetsReady = false;
+  let suppressSocketEvents = false;
+  const DEBUG_MP = false;
 
   const CARD_IMAGE_BASE = '../cards/';
   const CARD_IMAGE_SUITS = ['clubs', 'diamonds', 'hearts', 'spades', 'stars'];
   const CARD_IMAGE_RANK_FILES = ['3', '4', '5', '6', '7', '8', '9', '10', 'jack', 'queen', 'king'];
   const CARD_ASSET_CACHE_KEY = 'mp_card_assets_cache_marker';
   const CARD_ASSET_VERSION = 'v1';
+  const RESUME_TOKEN_KEY = 'mp_resume_token';
+  const OPPONENT_MELDS_VISIBLE_KEY = 'mp_show_opponent_melds';
+  let showOpponentMelds = false;
 
   // Compatibility shim: older builds may still call window.mgt.clearMarks().
   // Keep it as a no-op helper so stale references do not break current sessions.
@@ -239,6 +247,127 @@
       + '</span>';
   }
 
+  function displayPlayerName(name, connected) {
+    // Format player name for display: adds "(Android AI)" suffix when offline.
+    if (connected) return String(name || 'Player');
+    return String(name || 'Player') + ' (Android AI)';
+  }
+
+  // ── Chat ─────────────────────────────────────────────────────────────────
+  let _chatCollapsed = false;
+
+  function appendChatMessageWithRouting(message) {
+    const log = $('mp-chat-log');
+    if (!log) return;
+    const div = document.createElement('div');
+    const fromSelf = message && message.fromPlayerId === myPlayerId;
+    const isBroadcast = !message || message.isBroadcast !== false;
+    const recipients = Array.isArray(message && message.recipientNames) ? message.recipientNames : [];
+    const privateTo = isBroadcast ? '' : (' to ' + (recipients.length ? recipients.join(', ') : 'selected players'));
+    div.className = isBroadcast ? 'mp-chat-msg' : 'mp-chat-msg chat-private';
+    const time = message && message.ts
+      ? new Date(message.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : '';
+    const label = fromSelf
+      ? ('You' + privateTo)
+      : String((message && message.playerName) || 'Player');
+    div.innerHTML = `<span class="chat-name">${escapeHTML(label)}</span>: <span class="chat-text">${escapeHTML((message && message.text) || '')}</span>` +
+      (time ? ` <span style="color:#666;font-size:.75rem">${time}</span>` : '');
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+    // If chat is collapsed, show unread indicator on the toggle button
+    if (_chatCollapsed) {
+      const btn = $('mp-chat-toggle');
+      if (btn && !btn.dataset.unread) {
+        btn.dataset.unread = '1';
+        btn.textContent = '▼ Show 🔴';
+      }
+    }
+  }
+
+  function appendChatSystem(text) {
+    const log = $('mp-chat-log');
+    if (!log) return;
+    const div = document.createElement('div');
+    div.className = 'mp-chat-msg chat-system';
+    div.textContent = text;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function sendChat() {
+    const input = $('mp-chat-input');
+    const broadcastEl = $('mp-chat-broadcast');
+    const recipientsEl = $('mp-chat-recipients');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text || !socket || !myRoomCode || !myPlayerId) return;
+    const isBroadcast = !broadcastEl || broadcastEl.checked;
+    const recipientIds = (!isBroadcast && recipientsEl)
+      ? Array.from(recipientsEl.selectedOptions).map((option) => option.value).filter(Boolean)
+      : [];
+
+    if (!isBroadcast && recipientIds.length === 0) {
+      showStatus('Select at least one recipient, or check Broadcast to all.', true, true);
+      return;
+    }
+
+    socket.emit('chat:message', {
+      roomCode: myRoomCode,
+      playerId: myPlayerId,
+      text,
+      recipientIds,
+    });
+    input.value = '';
+  }
+
+  function renderChatRecipients(state) {
+    const recipientsEl = $('mp-chat-recipients');
+    const broadcastEl = $('mp-chat-broadcast');
+    if (!recipientsEl) return;
+
+    const selected = new Set(Array.from(recipientsEl.selectedOptions).map((option) => option.value));
+    const players = Array.isArray(state && state.players) ? state.players : [];
+
+    // Show ALL players (including offline) so the list is never empty due to transient disconnects.
+    // Exclude only the current player themselves. Fall back to name-based exclusion if id is unset.
+    const normalizedMyName = String(myPlayerName || '').trim().toLowerCase();
+    let choices = players.filter((p) => {
+      if (!p) return false;
+      if (myPlayerId && p.id === myPlayerId) return false;
+      if (!myPlayerId && normalizedMyName && String(p.name || '').trim().toLowerCase() === normalizedMyName) return false;
+      return true;
+    });
+
+    if (DEBUG_MP) {
+      console.log('[chat] renderChatRecipients: myPlayerId=' + myPlayerId +
+        ' myPlayerName=' + myPlayerName +
+        ' statePlayers=' + JSON.stringify((players).map((p) => ({ id: p && p.id, name: p && p.name }))) +
+        ' choices=' + JSON.stringify(choices.map((p) => ({ id: p.id, name: p.name }))));
+    }
+
+    if (choices.length === 0) {
+      recipientsEl.innerHTML = '<option value="" disabled>(No other players in room)</option>';
+    } else {
+      recipientsEl.innerHTML = choices
+        .map((p) => `<option value="${escapeHTML(p.id)}"${p.connected ? '' : ' class="mp-chat-offline"'}>${escapeHTML(p.name)}${p.connected ? '' : ' (offline)'}</option>`)
+        .join('');
+    }
+
+    Array.from(recipientsEl.options).forEach((option) => {
+      option.selected = selected.has(option.value);
+    });
+
+    if (broadcastEl) {
+      recipientsEl.disabled = broadcastEl.checked;
+    }
+  }
+
+  function showChatPanel() {
+    const panel = $('mp-chat');
+    if (panel) panel.style.display = '';
+  }
+
   let _statusTimer = null;
   function showStatus(msg, isError, autoClear) {
     const el = $('mp-status');
@@ -302,6 +431,38 @@
     const roomSuffix = myRoomCode ? (' | Room: ' + myRoomCode) : '';
     el.textContent = live.msg + roomSuffix;
     el.className = live.isError ? 'mp-status error' : 'mp-status';
+  }
+
+  function updateFinalTurnNotice(state) {
+    const noteEl = $('mp-final-turn-note');
+    if (!noteEl) return;
+    if (!state || !state.game || state.game.phase !== 'playing') {
+      noteEl.style.display = 'none';
+      noteEl.textContent = '';
+      return;
+    }
+
+    const g = state.game;
+    const outPlayerIds = new Set(Array.isArray(g.outPlayerIds) ? g.outPlayerIds : []);
+
+    if (outPlayerIds.size === 0) {
+      noteEl.style.display = 'none';
+      noteEl.textContent = '';
+      return;
+    }
+
+    const outNames = Array.from(outPlayerIds).map((id) => {
+      if (id === myPlayerId) return 'You';
+      const p = (state.players || []).find((x) => x.id === id);
+      return displayPlayerName((p && p.name) ? p.name : 'A player', p && p.connected);
+    });
+
+    if (outNames.length === 1) {
+      noteEl.textContent = outNames[0] + ' went out. This is the final turn for remaining players.';
+    } else {
+      noteEl.textContent = outNames.join(', ') + ' went out. This is the final turn for remaining players.';
+    }
+    noteEl.style.display = 'block';
   }
 
   function initAudio() {
@@ -393,6 +554,7 @@
   // ── Connect ───────────────────────────────────────────────────────────────
   function connect() {
     if (socket && socket.connected) return;
+    suppressSocketEvents = false;
     if (typeof io !== 'function') {
       showStatus('Socket client failed to load. Refresh page and try again.', true);
       return;
@@ -408,18 +570,34 @@
       }
     });
 
-    socket.on('disconnect', () => showStatus('Disconnected from server', true));
+    socket.on('disconnect', () => {
+      if (suppressSocketEvents) return;
+      showStatus('Disconnected from server', true);
+    });
     socket.on('connect_error', () => showStatus('Cannot reach server', true));
     socket.on('session:replaced', () => {
+      if (suppressSocketEvents) return;
       const previousName = myPlayerName;
       clearSession();
       resetToLobby('This player was opened on another page. This page has been signed out.', previousName);
     });
 
     socket.on('room:state', (state) => {
+      if (suppressSocketEvents) return;
       latestState = state;
+      lastStateReceivedAt = Date.now();
       saveSession();
       render(state);
+    });
+
+    socket.on('chat:message', (message) => {
+      if (suppressSocketEvents) return;
+      appendChatMessageWithRouting(message);
+    });
+
+    socket.on('chat:error', ({ error }) => {
+      if (suppressSocketEvents) return;
+      showStatus(error || 'Unable to send message', true, true);
     });
   }
 
@@ -431,47 +609,149 @@
       playerName: myPlayerName,
       roomCode: myRoomCode,
     };
-    // Save to sessionStorage (cleared on browser close)
+    // Save to sessionStorage only (tab/reload scope).
+    // localStorage is reserved for the explicit Resume Seat flow (saveResumeToken).
+    // Sharing a localStorage backup across tabs causes identity collisions when
+    // two different players open the page in the same browser profile.
     sessionStorage.setItem('mp_session', JSON.stringify(sessionData));
-    // ALSO save playerId to localStorage as backup (survives browser close)
-    // This ensures disconnected players can auto-reconnect even after closing browser
-    localStorage.setItem('mp_playerId_backup', myPlayerId);
-    localStorage.setItem('mp_roomCode_backup', myRoomCode);
   }
 
   function loadSession() {
     try {
-      // Try sessionStorage first (page reload, tab open)
+      // sessionStorage only — scoped to this tab, cleared on browser close.
+      // This prevents two players in the same browser profile from stealing
+      // each other's identity on auto-connect.
       const session = JSON.parse(sessionStorage.getItem('mp_session') || 'null');
       if (session && session.playerId) return session;
-      
-      // Fallback to localStorage (browser closed/reopened, same browser)
-      const playerId = localStorage.getItem('mp_playerId_backup');
-      const roomCode = localStorage.getItem('mp_roomCode_backup');
-      if (playerId && roomCode) {
-        // Do not inject placeholder text as a real player name.
-        // We reconnect by playerId and let the server keep the existing name.
-        return { playerId, roomCode, playerName: '' };
-      }
       return null;
     } catch { return null; }
   }
 
+  function saveResumeToken() {
+    if (!myPlayerId || !myRoomCode) return;
+    try {
+      localStorage.setItem(RESUME_TOKEN_KEY, JSON.stringify({
+        playerId: myPlayerId,
+        roomCode: myRoomCode,
+        playerName: myPlayerName || '',
+        ts: Date.now(),
+      }));
+    } catch {
+      // Ignore localStorage errors.
+    }
+  }
+
+  function loadResumeToken() {
+    try {
+      const raw = localStorage.getItem(RESUME_TOKEN_KEY);
+      if (!raw) return null;
+      const token = JSON.parse(raw);
+      if (!token || !token.playerId || !token.roomCode) return null;
+      return token;
+    } catch {
+      return null;
+    }
+  }
+
+  function clearResumeToken() {
+    localStorage.removeItem(RESUME_TOKEN_KEY);
+  }
+
+  function updateResumeUI() {
+    const token = loadResumeToken();
+    const resumeBtn = $('mp-resume-btn');
+    if (resumeBtn) {
+      resumeBtn.style.display = token ? '' : 'none';
+    }
+
+    const roomInput = $('mp-room-input');
+    if (token && roomInput && !String(roomInput.value || '').trim()) {
+      roomInput.value = String(token.roomCode || '').toUpperCase();
+    }
+
+    const nameInput = $('mp-name-input');
+    if (token && nameInput && !String(nameInput.value || '').trim() && token.playerName) {
+      nameInput.value = token.playerName;
+    }
+  }
+
+  function loadOpponentMeldVisibility() {
+    try {
+      const raw = localStorage.getItem(OPPONENT_MELDS_VISIBLE_KEY);
+      showOpponentMelds = raw === 'true';
+    } catch {
+      showOpponentMelds = false;
+    }
+
+    const toggleEl = $('mp-toggle-opponent-melds');
+    if (toggleEl) {
+      toggleEl.checked = showOpponentMelds;
+    }
+  }
+
+  function setOpponentMeldVisibility(visible) {
+    showOpponentMelds = Boolean(visible);
+    try {
+      localStorage.setItem(OPPONENT_MELDS_VISIBLE_KEY, showOpponentMelds ? 'true' : 'false');
+    } catch {
+      // Ignore localStorage errors.
+    }
+
+    const toggleEl = $('mp-toggle-opponent-melds');
+    if (toggleEl) {
+      toggleEl.checked = showOpponentMelds;
+    }
+
+    if (latestState && latestState.game) {
+      renderOpponents(latestState.game);
+    }
+  }
+
   function clearSession() {
     sessionStorage.removeItem('mp_session');
-    localStorage.removeItem('mp_playerId_backup');
-    localStorage.removeItem('mp_roomCode_backup');
     myPlayerId = null;
     myPlayerName = '';
     myRoomCode = '';
   }
 
   function signOut() {
+    const previousName = myPlayerName;
+    suppressSocketEvents = true;
+    saveResumeToken();
     clearSession();
     if (socket && socket.connected) {
       socket.disconnect();
     }
-    resetToLobby('Signed out. Ready for a new player to join.', '');
+    socket = null;
+    resetToLobby('Signed out. AI will take over for this seat until you resume.', previousName);
+    updateResumeUI();
+  }
+
+  function resumeFromSignOut() {
+    const token = loadResumeToken();
+    if (!token) {
+      showStatus('No paused player seat found. Join with name + room code.', true);
+      updateResumeUI();
+      return;
+    }
+
+    const roomCode = String(token.roomCode || '').trim();
+    const playerId = String(token.playerId || '').trim();
+    const typedName = String(($('mp-name-input') && $('mp-name-input').value) || '').trim();
+    const playerName = typedName || String(token.playerName || '').trim() || 'Player';
+
+    if (!roomCode || !playerId) {
+      clearResumeToken();
+      updateResumeUI();
+      showStatus('Saved resume data was invalid. Join again with room code.', true);
+      return;
+    }
+
+    if ($('mp-room-input')) $('mp-room-input').value = roomCode.toUpperCase();
+    if ($('mp-name-input')) $('mp-name-input').value = playerName;
+
+    connect();
+    setTimeout(() => joinRoom(roomCode, playerName, playerId, { resume: true }), 200);
   }
 
   function resetToLobby(message, keepName) {
@@ -525,6 +805,9 @@
       myPlayerId = res.playerId;
       myRoomCode = res.roomCode;
       updateRoomCodeUI(myRoomCode);
+      clearResumeToken();
+      updateResumeUI();
+      showChatPanel();
       showStatus('Room created: ' + myRoomCode + '. Share this code to join.');
       if (res.state) {
         latestState = res.state;
@@ -537,6 +820,7 @@
   function joinRoom(roomCode, playerName, existingPlayerId, options) {
     const opts = options || {};
     const silent = Boolean(opts.silent);
+    if (joinInFlight && silent) return;
     const candidateName = String(playerName || '').trim();
     const hasExplicitName = Boolean(candidateName);
     if (hasExplicitName) {
@@ -556,11 +840,16 @@
       payload.playerName = (myPlayerName || 'Player').trim() || 'Player';
     }
 
+    joinInFlight = true;
     socket.emit('room:join', payload, (res) => {
+      joinInFlight = false;
       if (!res.ok) { showStatus(res.error, true); return; }
       myPlayerId = res.playerId;
       myRoomCode = res.roomCode;
+      lastStateReceivedAt = Date.now();
       updateRoomCodeUI(myRoomCode);
+      clearResumeToken();
+      updateResumeUI();
 
       if (res.state && Array.isArray(res.state.players)) {
         const me = res.state.players.find((p) => p.id === myPlayerId);
@@ -571,21 +860,25 @@
         }
       }
 
-      if (!silent) {
+      showChatPanel();
+
+      if (opts.resume) {
+        showStatus('Resumed room: ' + myRoomCode + '. You are back in control.');
+      } else if (!silent) {
         showStatus('Joined room: ' + myRoomCode + '. Waiting for host to start.');
       } else {
         showStatus('Reconnected to room: ' + myRoomCode + '.');
       }
       if (res.state) {
-        // Debug: log reconnection state to verify hand is present
-        if (existingPlayerId || myPlayerId) {
+        if (DEBUG_MP && (existingPlayerId || myPlayerId)) {
+          const resolvedPhase = (res.state.gameState && res.state.gameState.phase) || res.state.phase || 'lobby';
           console.log('[joinRoom] Reconnected as playerId:', myPlayerId);
-          console.log('[joinRoom] Game phase:', res.state.phase);
+          console.log('[joinRoom] Game phase:', resolvedPhase);
           if (res.state.game) {
             console.log('[joinRoom] myHand size:', (res.state.game.myHand || []).length);
             console.log('[joinRoom] isMyTurn:', res.state.game.isMyTurn);
-          } else {
-            console.warn('[joinRoom] No game state in response!');
+          } else if (resolvedPhase !== 'lobby') {
+            console.warn('[joinRoom] Missing game payload outside lobby phase');
           }
         }
         latestState = res.state;
@@ -597,6 +890,50 @@
 
   function startGame() {
     socket.emit('game:start', { roomCode: myRoomCode, playerId: myPlayerId }, (res) => {
+      if (res && !res.ok) showStatus(res.error, true);
+      if (res && res.ok && res.state) {
+        latestState = res.state;
+        render(res.state);
+      }
+    });
+  }
+
+  function pauseGame(description) {
+    socket.emit('game:pause', { roomCode: myRoomCode, playerId: myPlayerId, description: description || '' }, (res) => {
+      if (res && !res.ok) showStatus(res.error, true);
+      if (res && res.ok && res.state) {
+        latestState = res.state;
+        render(res.state);
+      }
+    });
+  }
+
+  function showPauseDialog() {
+    const dialog = $('mp-pause-dialog');
+    const input = $('mp-pause-description-input');
+    if (!dialog) return;
+    if (input) input.value = '';
+    dialog.classList.add('show');
+    if (input) setTimeout(() => input.focus(), 50);
+  }
+
+  function hidePauseDialog() {
+    const dialog = $('mp-pause-dialog');
+    if (dialog) dialog.classList.remove('show');
+  }
+
+  function resumeGame() {
+    socket.emit('game:resume', { roomCode: myRoomCode, playerId: myPlayerId }, (res) => {
+      if (res && !res.ok) showStatus(res.error, true);
+      if (res && res.ok && res.state) {
+        latestState = res.state;
+        render(res.state);
+      }
+    });
+  }
+
+  function restartGame() {
+    socket.emit('game:restart', { roomCode: myRoomCode, playerId: myPlayerId }, (res) => {
       if (res && !res.ok) showStatus(res.error, true);
       if (res && res.ok && res.state) {
         latestState = res.state;
@@ -671,6 +1008,7 @@
   // ── Rendering ────────────────────────────────────────────────────────────
   function render(state) {
     if (!state) return;
+    renderChatRecipients(state);
     // Server sends phase inside state.gameState; handle both layouts for safety
     const phase = (state.gameState && state.gameState.phase) || state.phase || 'lobby';
 
@@ -698,7 +1036,7 @@
     const playerListEl = $('mp-player-list');
     if (playerListEl && state.players) {
       playerListEl.innerHTML = state.players.map((p) =>
-        `<li>${!p.connected ? aiBadgeHTML() : ''}${p.name}${p.isHost ? ' 👑' : ''}${!p.connected ? ' (offline)' : ''}</li>`
+        `<li>${!p.connected ? aiBadgeHTML() : ''}${displayPlayerName(p.name, p.connected)}${p.isHost ? ' 👑' : ''}</li>`
       ).join('');
     }
 
@@ -723,20 +1061,23 @@
       return;
     }
     const g = state.game;
+    const isPaused = g.phase === 'paused';
 
     // Header info
-    setText('mp-round', 'Round ' + g.roundNumber + ' of 9');
-    setText('mp-wild', 'Wild: ' + g.wildRank + 's & Jokers');
-    setText('mp-wild-reminder', 'Reminder: wild this round is ' + g.wildRank + ' and jokers.');
+    setText('mp-round', isPaused ? 'Game Paused' : 'Round ' + g.roundNumber + ' of 9');
+    setText('mp-wild', isPaused ? '—' : 'Wild: ' + g.wildRank + 's & Jokers');
+    setText('mp-wild-reminder', isPaused ? 'Game is paused. Only the host can resume or start a new game.' : 'Reminder: wild this round is ' + g.wildRank + ' and jokers.');
     const _currPlayerOffline = !g.isMyTurn && Array.isArray(latestState && latestState.players) &&
       latestState.players.some((p) => p.id === g.currentPlayerId && !p.connected);
-    setText('mp-current-player', g.isMyTurn ? '🟢 Your turn' :
-      _currPlayerOffline ? ('🤖 AI playing for ' + g.currentPlayerName + '…') :
+    setText('mp-current-player', isPaused ? '⏸ Paused' : g.isMyTurn ? '🟢 Your turn' :
+      _currPlayerOffline ? ('🤖 ' + displayPlayerName(g.currentPlayerName, false) + ' playing…') :
       ('Waiting for ' + g.currentPlayerName + '…'));
     setText('mp-deck-count', 'Deck: ' + g.deckSize);
 
     updateFinalTurnNotice(state);
-    announceWentOutIfNeeded(state);
+    if (!isPaused) {
+      announceWentOutIfNeeded(state);
+    }
 
     // Discard pile top card
     const discardEl = $('mp-discard-card');
@@ -753,6 +1094,23 @@
 
     // Action buttons
     renderActionButtons(g);
+
+    const pauseBtn = $('mp-btn-pause');
+    const resumeBtn = $('mp-btn-resume');
+    const newGameBtn = $('mp-btn-new-game');
+    const me = Array.isArray(state.players)
+      ? state.players.find((p) => p.id === myPlayerId)
+      : null;
+    const amHost = Boolean(me && me.isHost);
+
+    if (pauseBtn) pauseBtn.style.display = amHost && g.phase === 'playing' ? '' : 'none';
+    if (resumeBtn) resumeBtn.style.display = amHost && g.phase === 'paused' ? '' : 'none';
+    if (newGameBtn) newGameBtn.style.display = amHost && (g.phase === 'paused' || g.phase === 'gameOver') ? '' : 'none';
+
+    const actionsEl = $('mp-actions');
+    if (actionsEl) {
+      actionsEl.style.display = isPaused ? 'none' : 'flex';
+    }
 
     // Round-over overlay
     if (g.phase === 'roundOver' || g.phase === 'gameOver') {
@@ -781,6 +1139,10 @@
       btn.addEventListener('click', () => {
         const g2 = latestState && latestState.game;
         if (!g2) return;
+        if (g2.phase === 'paused') {
+          showStatus('Game is paused. Wait for host to resume.', true, true);
+          return;
+        }
         if (!g2.isMyTurn) {
           showStatus('Not your turn — waiting for ' + g2.currentPlayerName + '.', true, true);
           return;
@@ -819,11 +1181,17 @@
       const turnMark = opp.isCurrentTurn ? ' 🔵' : '';
       const outMark = opp.isOut ? ' ✅ WENT OUT' : '';
       const aiMark = !opp.connected ? aiBadgeHTML() : '';
-      const melds = (opp.meldSets || []).map((set, i) =>
-        `<div class="opp-meld">M${i + 1}: ${set.map((c) => cardFaceHTML(c)).join(' ')}</div>`
-      ).join('');
+      const displayName = displayPlayerName(opp.name, opp.connected);
+      const oppSets = Array.isArray(opp.meldSets) ? opp.meldSets : [];
+      const melds = showOpponentMelds
+        ? oppSets.map((set, i) =>
+          `<div class="opp-meld">M${i + 1}: ${set.map((c) => cardFaceHTML(c)).join(' ')}</div>`
+        ).join('')
+        : (oppSets.length > 0
+          ? `<div class="opp-meld hidden">Melds hidden (${oppSets.length} set${oppSets.length === 1 ? '' : 's'})</div>`
+          : '');
       return `<div class="mp-opponent">
-        <strong>${aiMark}${opp.name}${turnMark}${outMark}</strong>
+        <strong>${aiMark}${displayName}${turnMark}${outMark}</strong>
         <span> | ${opp.handSize} cards | Round: ${opp.roundScore ?? 0} | Total: ${opp.gameScore ?? 0}</span>
         ${melds}
       </div>`;
@@ -954,6 +1322,18 @@
   function renderActionButtons(g) {
     const isMyTurn = g && g.isMyTurn;
     const phase = g && g.myTurnPhase;
+    const isPaused = g && g.phase === 'paused';
+
+    if (isPaused) {
+      meldModeActive = false;
+      selectedHandIndices = [];
+      setVisible('mp-btn-meld', false);
+      setVisible('mp-btn-undo-melds', false);
+      setVisible('mp-btn-skip-offline', false);
+      setPileClickable('mp-deck-pile', false);
+      setPileClickable('mp-discard-card', false);
+      return;
+    }
 
     // Pile areas glow when it's your draw turn
     setPileClickable('mp-deck-pile',   isMyTurn && phase === 'draw');
@@ -1056,15 +1436,11 @@
     } else {
       html += `<p>Waiting for host to start next round…</p>`;
     }
-    html += `<div style="margin-top:10px"><button id="mp-btn-open-scoreboard" class="mp-btn secondary">Open Full Scoreboard</button></div>`;
 
     setHTML('mp-round-over', html);
 
     const btn = $('mp-btn-next-round-overlay');
     if (btn) btn.addEventListener('click', nextRound);
-
-    const sbBtn = $('mp-btn-open-scoreboard');
-    if (sbBtn) sbBtn.addEventListener('click', () => window.open('ScoreBoard.html', '_blank'));
   }
 
   // ── UI event wiring ───────────────────────────────────────────────────────
@@ -1101,11 +1477,57 @@
       });
     }
 
+    const browseSuspendedBtn = $('mp-browse-suspended-btn');
+    if (browseSuspendedBtn) {
+      browseSuspendedBtn.addEventListener('click', showSuspendedGamesModal);
+    }
+
     const startBtn = $('mp-start-btn');
     if (startBtn) startBtn.addEventListener('click', startGame);
 
+    const pauseBtn = $('mp-btn-pause');
+    if (pauseBtn) pauseBtn.addEventListener('click', showPauseDialog);
+
+    // Pause dialog confirm/cancel
+    const pauseConfirmBtn = $('mp-pause-confirm-btn');
+    if (pauseConfirmBtn) {
+      pauseConfirmBtn.addEventListener('click', () => {
+        const description = ($('mp-pause-description-input') || {}).value || '';
+        hidePauseDialog();
+        pauseGame(description.trim());
+      });
+    }
+    const pauseCancelBtn = $('mp-pause-cancel-btn');
+    if (pauseCancelBtn) pauseCancelBtn.addEventListener('click', hidePauseDialog);
+
+    // Close pause dialog on Enter key in description input
+    const pauseDescInput = $('mp-pause-description-input');
+    if (pauseDescInput) {
+      pauseDescInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const description = pauseDescInput.value || '';
+          hidePauseDialog();
+          pauseGame(description.trim());
+        } else if (e.key === 'Escape') {
+          hidePauseDialog();
+        }
+      });
+    }
+
+    const resumeBtn = $('mp-btn-resume');
+    if (resumeBtn) resumeBtn.addEventListener('click', resumeGame);
+
+    const newGameBtn = $('mp-btn-new-game');
+    if (newGameBtn) newGameBtn.addEventListener('click', restartGame);
+
     const signoutBtn = $('mp-signout-btn');
     if (signoutBtn) signoutBtn.addEventListener('click', signOut);
+
+    const signoutBtnGame = $('mp-signout-btn-game');
+    if (signoutBtnGame) signoutBtnGame.addEventListener('click', signOut);
+
+    const resumeSeatBtn = $('mp-resume-btn');
+    if (resumeSeatBtn) resumeSeatBtn.addEventListener('click', resumeFromSignOut);
 
     // ── Pile-click: draw from deck ───────────────────────────────────────────
     // Clicking the deck pile draws a card — but only during your draw phase.
@@ -1115,6 +1537,10 @@
       deckPileEl.addEventListener('click', () => {
         const g = latestState && latestState.game;
         if (!g) return;
+        if (g.phase === 'paused') {
+          showStatus('Game is paused. Wait for host to resume.', true, true);
+          return;
+        }
         if (!g.isMyTurn) {
           showStatus('Not your turn — waiting for ' + g.currentPlayerName + '.', true, true);
         } else if (g.myTurnPhase !== 'draw') {
@@ -1131,6 +1557,10 @@
       discardPileEl.addEventListener('click', () => {
         const g = latestState && latestState.game;
         if (!g) return;
+        if (g.phase === 'paused') {
+          showStatus('Game is paused. Wait for host to resume.', true, true);
+          return;
+        }
         if (!g.isMyTurn) {
           showStatus('Not your turn — waiting for ' + g.currentPlayerName + '.', true, true);
         } else if (g.myTurnPhase !== 'draw') {
@@ -1148,6 +1578,10 @@
       meldBtn.addEventListener('click', () => {
         const g2 = latestState && latestState.game;
         if (!g2 || !g2.isMyTurn || g2.myTurnPhase !== 'meld-discard') return;
+        if (g2.phase === 'paused') {
+          showStatus('Game is paused. Wait for host to resume.', true, true);
+          return;
+        }
         if (meldModeActive && selectedHandIndices.length >= 3) {
           // Declare the meld; stay in meld mode for more melds
           declareMeld();
@@ -1173,12 +1607,73 @@
 
     const skipOfflineBtn = $('mp-btn-skip-offline');
     if (skipOfflineBtn) skipOfflineBtn.addEventListener('click', skipOfflineTurn);
+
+    const oppMeldToggle = $('mp-toggle-opponent-melds');
+    if (oppMeldToggle) {
+      oppMeldToggle.addEventListener('change', () => {
+        setOpponentMeldVisibility(oppMeldToggle.checked);
+      });
+    }
+
+    // Suspended games modal buttons
+    const suspendedCloseBtn = $('mp-suspended-close-btn');
+    if (suspendedCloseBtn) {
+      suspendedCloseBtn.addEventListener('click', hideSuspendedGamesModal);
+    }
+
+    // Close modals when clicking on their backdrop
+    const suspendedModal = $('mp-suspended-games-modal');
+    if (suspendedModal) {
+      suspendedModal.addEventListener('click', (e) => {
+        if (e.target === suspendedModal) hideSuspendedGamesModal();
+      });
+    }
+
+    const pauseDialog = $('mp-pause-dialog');
+    if (pauseDialog) {
+      pauseDialog.addEventListener('click', (e) => {
+        if (e.target === pauseDialog) hidePauseDialog();
+      });
+    }
+
+    // ── Chat ────────────────────────────────────────────────────────────────
+    const chatSendBtn = $('mp-chat-send');
+    if (chatSendBtn) chatSendBtn.addEventListener('click', sendChat);
+
+    const chatInput = $('mp-chat-input');
+    if (chatInput) {
+      chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendChat();
+      });
+    }
+
+    const chatToggle = $('mp-chat-toggle');
+    if (chatToggle) {
+      chatToggle.addEventListener('click', () => {
+        const body = $('mp-chat-body');
+        if (!body) return;
+        _chatCollapsed = !_chatCollapsed;
+        body.style.display = _chatCollapsed ? 'none' : 'block';
+        chatToggle.textContent = _chatCollapsed ? '▼ Show' : '▲ Hide';
+        delete chatToggle.dataset.unread;
+      });
+    }
+
+    const chatBroadcast = $('mp-chat-broadcast');
+    const chatRecipients = $('mp-chat-recipients');
+    if (chatBroadcast && chatRecipients) {
+      chatBroadcast.addEventListener('change', () => {
+        chatRecipients.disabled = chatBroadcast.checked;
+      });
+      chatRecipients.disabled = chatBroadcast.checked;
+    }
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
   function init() {
     ensureLegacyMgtCompatibility();
     wireButtons();
+    loadOpponentMeldVisibility();
     preloadCardAssets();
 
     // Auto-connect if session data exists
@@ -1188,19 +1683,146 @@
       if ($('mp-name-input')) $('mp-name-input').value = myPlayerName;
       connect();
     }
+    updateResumeUI();
 
     // If a room update is missed (mobile reconnect/background), silently resync
     // lobby state so players reliably transition when host starts.
     lobbyResyncTimer = setInterval(() => {
       if (!socket || !socket.connected) return;
       if (!myRoomCode || !myPlayerId) return;
+      if (joinInFlight) return;
       const phase = latestState && latestState.gameState && latestState.gameState.phase;
       const topPhase = latestState && latestState.phase;
       const currentPhase = phase || topPhase || 'lobby';
-      if (currentPhase === 'lobby') {
+      const now = Date.now();
+      const staleState = (now - lastStateReceivedAt) > 10000;
+      const cooldownElapsed = (now - lastLobbyResyncAt) > 15000;
+      if (currentPhase === 'lobby' && staleState && cooldownElapsed) {
+        lastLobbyResyncAt = now;
         joinRoom(myRoomCode, myPlayerName, myPlayerId, { silent: true });
       }
     }, 2500);
+  }
+
+  /**
+   * Fetch list of suspended games from server
+   */
+  async function fetchSuspendedGames() {
+    try {
+      const response = await fetch(`${SERVER_URL}/api/suspended-games`);
+      const data = await response.json();
+      return data.ok ? data.games : [];
+    } catch (err) {
+      console.error('[MP] Error fetching suspended games:', err.message);
+      return [];
+    }
+  }
+
+  /**
+   * Display suspended games modal
+   */
+  async function showSuspendedGamesModal() {
+    const modal = document.getElementById('mp-suspended-games-modal');
+    const list = document.getElementById('mp-suspended-games-list');
+    const empty = document.getElementById('mp-suspended-empty');
+
+    const games = await fetchSuspendedGames();
+
+    // Clear existing list
+    list.innerHTML = '';
+
+    if (games.length === 0) {
+      empty.style.display = 'block';
+    } else {
+      empty.style.display = 'none';
+      games.forEach(game => {
+        const item = document.createElement('li');
+        item.className = 'mp-suspended-game-item';
+
+        const date = new Date(game.pausedAt);
+        const timeStr = date.toLocaleString();
+        const descriptionHtml = game.description
+          ? `<div class="mp-game-info-line mp-game-description">“${game.description}”</div>`
+          : '';
+
+        item.innerHTML = `
+          <div class="mp-game-info">
+            <div class="mp-game-info-line mp-game-room">Room: ${game.roomCode}</div>
+            ${descriptionHtml}
+            <div class="mp-game-info-line mp-game-round">Round: ${game.round}/11</div>
+            <div class="mp-game-info-line mp-game-players">Players: ${game.playerNames.join(', ')}</div>
+            <div class="mp-game-info-line mp-game-paused">Paused: ${timeStr}</div>
+          </div>
+          <div class="mp-game-actions">
+            <button class="mp-btn success mp-resume-suspended-btn" data-room="${game.roomCode}">Resume</button>
+            <button class="mp-btn danger mp-delete-suspended-btn" data-room="${game.roomCode}">Delete</button>
+          </div>
+        `;
+
+        // Add event listeners
+        item.querySelector('.mp-resume-suspended-btn').addEventListener('click', () => {
+          resumeSuspendedGame(game.roomCode);
+        });
+
+        item.querySelector('.mp-delete-suspended-btn').addEventListener('click', () => {
+          deleteSuspendedGame(game.roomCode);
+        });
+
+        list.appendChild(item);
+      });
+    }
+
+    modal.classList.add('show');
+  }
+
+  /**
+   * Hide suspended games modal
+   */
+  function hideSuspendedGamesModal() {
+    const modal = document.getElementById('mp-suspended-games-modal');
+    modal.classList.remove('show');
+  }
+
+  /**
+   * Resume a suspended game by room code
+   */
+  function resumeSuspendedGame(roomCode) {
+    if (!roomCode || !socket) {
+      showStatus('Error: Invalid room code or socket not connected', true, true);
+      return;
+    }
+
+    // Try to join the room with the given room code
+    // The server will recognize it's a paused game and restore the state
+    hideSuspendedGamesModal();
+    joinRoom(roomCode, myPlayerName, myPlayerId);
+  }
+
+  /**
+   * Delete a suspended game from storage
+   */
+  async function deleteSuspendedGame(roomCode) {
+    if (!confirm(`Delete suspended game in room ${roomCode}? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${SERVER_URL}/api/suspended-games/${roomCode}`, {
+        method: 'DELETE'
+      });
+      const data = await response.json();
+
+      if (data.ok) {
+        showStatus(`Deleted suspended game: ${roomCode}`, false, true);
+        // Refresh the list
+        showSuspendedGamesModal();
+      } else {
+        showStatus(`Error deleting game: ${data.error}`, true, true);
+      }
+    } catch (err) {
+      console.error('[MP] Error deleting suspended game:', err.message);
+      showStatus('Error deleting game', true, true);
+    }
   }
 
   if (document.readyState === 'loading') {
@@ -1210,5 +1832,5 @@
   }
 
   // Expose minimal API for debugging
-  window.MP = { createRoom, joinRoom, startGame, sendAction, drawFromDeck, drawFromDiscard, declareMeld, undoMelds, discardCard, nextRound };
+  window.MP = { createRoom, joinRoom, startGame, pauseGame, resumeGame, restartGame, sendAction, drawFromDeck, drawFromDiscard, declareMeld, undoMelds, discardCard, nextRound, showSuspendedGamesModal, hideSuspendedGamesModal, fetchSuspendedGames };
 })();
