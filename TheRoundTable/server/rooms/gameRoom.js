@@ -13,6 +13,7 @@ class GameRoom {
     this.code = code;
     this.createdAt = Date.now();
     this.players = [];   // { id, name, socketId, connected }
+    this.hostPlayerId = null;
     this.game = null;    // TheRoundTableGame instance
     this.phase = 'lobby';
   }
@@ -55,6 +56,9 @@ class GameRoom {
       joinedAt: Date.now(),
     };
     this.players.push(player);
+    if (!this.hostPlayerId) {
+      this.hostPlayerId = player.id;
+    }
     return player;
   }
 
@@ -62,6 +66,15 @@ class GameRoom {
     const player = this.players.find((p) => p.socketId === socketId);
     if (!player) return null;
     player.connected = false;
+
+    // Keep host controls available by handing off host to a connected player.
+    if (player.id === this.hostPlayerId) {
+      const nextConnected = this.players.find((p) => p.connected);
+      if (nextConnected) {
+        this.hostPlayerId = nextConnected.id;
+      }
+    }
+
     return player;
   }
 
@@ -70,7 +83,7 @@ class GameRoom {
   }
 
   isHost(playerId) {
-    return this.players.length > 0 && this.players[0].id === playerId;
+    return Boolean(playerId) && this.hostPlayerId === playerId;
   }
 
   playerById(playerId) {
