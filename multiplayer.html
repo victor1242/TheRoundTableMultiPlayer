@@ -2,11 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=/multiplayer.html">
+  <meta http-equiv="refresh" content="0; url=/TheRoundTable/multiplayer.html">
   <title>The Round Table Multiplayer</title>
   <script>
-    // Keep URL compatibility: allow /multiplayer.html on the debug static server.
-    window.location.replace('/multiplayer.html');
+    // Keep URL compatibility on the root static server.
+    // The playable multiplayer client lives under /TheRoundTable.
+    var target = '/TheRoundTable/multiplayer.html' + window.location.search + window.location.hash;
+    window.location.replace(target);
   </script>
 </head>
 <body>

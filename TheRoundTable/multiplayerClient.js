@@ -9,12 +9,12 @@
   'use strict';
 
   // ── Config ──────────────────────────────────────────────────────────────
-  // Multiplayer server runs on port 3001. If this page is served from a
-  // static server (e.g. :5500), connect to the same host on :3001.
+  // In local development the page can be served from a separate static server
+  // on :5500, but tunneled and backend-served pages should use same-origin.
   const SERVER_PORT = '3001';
-  const SERVER_URL = window.location.port === SERVER_PORT
-    ? window.location.origin
-    : (window.location.protocol + '//' + window.location.hostname + ':' + SERVER_PORT);
+  const SERVER_URL = window.location.port === '5500'
+    ? (window.location.protocol + '//' + window.location.hostname + ':' + SERVER_PORT)
+    : window.location.origin;
 
   // ── State ────────────────────────────────────────────────────────────────
   let socket = null;
@@ -255,6 +255,79 @@
 
   // ── Chat ─────────────────────────────────────────────────────────────────
   let _chatCollapsed = false;
+  let _iosRecipientSelection = new Set();
+
+  function isIOSLikeDevice() {
+    if (typeof navigator === 'undefined') return false;
+    const ua = String(navigator.userAgent || '');
+    if (/iPad|iPhone|iPod/i.test(ua)) return true;
+    // iPadOS may identify as MacIntel while still being touch-based.
+    return navigator.platform === 'MacIntel' && Number(navigator.maxTouchPoints || 0) > 1;
+  }
+
+  function ensureChatRecipientChecklistContainer() {
+    const targeting = $('mp-chat-targeting');
+    if (!targeting) return null;
+
+    let container = $('mp-chat-recipient-list');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'mp-chat-recipient-list';
+      container.className = 'mp-chat-recipient-list';
+      container.style.display = 'none';
+      targeting.insertBefore(container, $('mp-chat-meta-note') || $('mp-chat-row') || null);
+    }
+    return container;
+  }
+
+  function getSelectedRecipientIds() {
+    const recipientsEl = $('mp-chat-recipients');
+    const listEl = $('mp-chat-recipient-list');
+    const useChecklist = isIOSLikeDevice() && !!listEl && listEl.style.display !== 'none';
+    if (useChecklist) {
+      return Array.from(_iosRecipientSelection);
+    }
+    if (!recipientsEl) return [];
+    return Array.from(recipientsEl.selectedOptions).map((option) => option.value).filter(Boolean);
+  }
+
+  function renderIOSRecipientChecklist(choices) {
+    const listEl = ensureChatRecipientChecklistContainer();
+    if (!listEl) return;
+    if (!isIOSLikeDevice()) {
+      listEl.style.display = 'none';
+      return;
+    }
+
+    if (!Array.isArray(choices) || choices.length === 0) {
+      listEl.innerHTML = '<div class="mp-chat-recipient-empty">(No other players in room)</div>';
+      listEl.style.display = 'block';
+      return;
+    }
+
+    listEl.innerHTML = choices.map((p) => {
+      const checked = _iosRecipientSelection.has(String(p.id)) ? ' checked' : '';
+      const offlineClass = p.connected ? '' : ' mp-chat-offline';
+      const statusText = p.connected ? '' : ' (offline)';
+      return '<label class="mp-chat-recipient-item' + offlineClass + '">'
+        + '<input type="checkbox" data-recipient-id="' + escapeHTML(String(p.id || '')) + '"' + checked + '>'
+        + '<span>' + escapeHTML(String(p.name || 'Player')) + statusText + '</span>'
+        + '</label>';
+    }).join('');
+    listEl.style.display = 'block';
+
+    listEl.querySelectorAll('input[type="checkbox"][data-recipient-id]').forEach((box) => {
+      box.addEventListener('change', () => {
+        const id = String(box.getAttribute('data-recipient-id') || '');
+        if (!id) return;
+        if (box.checked) {
+          _iosRecipientSelection.add(id);
+        } else {
+          _iosRecipientSelection.delete(id);
+        }
+      });
+    });
+  }
 
   function appendChatMessageWithRouting(message) {
     const log = $('mp-chat-log');
@@ -298,14 +371,11 @@
   function sendChat() {
     const input = $('mp-chat-input');
     const broadcastEl = $('mp-chat-broadcast');
-    const recipientsEl = $('mp-chat-recipients');
     if (!input) return;
     const text = input.value.trim();
     if (!text || !socket || !myRoomCode || !myPlayerId) return;
     const isBroadcast = !broadcastEl || broadcastEl.checked;
-    const recipientIds = (!isBroadcast && recipientsEl)
-      ? Array.from(recipientsEl.selectedOptions).map((option) => option.value).filter(Boolean)
-      : [];
+    const recipientIds = !isBroadcast ? getSelectedRecipientIds() : [];
 
     if (!isBroadcast && recipientIds.length === 0) {
       showStatus('Select at least one recipient, or check Broadcast to all.', true, true);
@@ -326,7 +396,7 @@
     const broadcastEl = $('mp-chat-broadcast');
     if (!recipientsEl) return;
 
-    const selected = new Set(Array.from(recipientsEl.selectedOptions).map((option) => option.value));
+    const selected = new Set(getSelectedRecipientIds());
     const players = Array.isArray(state && state.players) ? state.players : [];
 
     // Show ALL players (including offline) so the list is never empty due to transient disconnects.
@@ -358,8 +428,24 @@
       option.selected = selected.has(option.value);
     });
 
+    const validChoiceIds = new Set(choices.map((p) => String(p.id || '')));
+    _iosRecipientSelection = new Set(Array.from(selected).filter((id) => validChoiceIds.has(id)));
+    renderIOSRecipientChecklist(choices);
+
+    const listEl = $('mp-chat-recipient-list');
+    if (isIOSLikeDevice() && listEl) {
+      recipientsEl.style.display = 'none';
+    } else {
+      recipientsEl.style.display = '';
+    }
+
     if (broadcastEl) {
-      recipientsEl.disabled = broadcastEl.checked;
+      const disabled = broadcastEl.checked;
+      recipientsEl.disabled = disabled;
+      if (listEl) {
+        listEl.style.pointerEvents = disabled ? 'none' : 'auto';
+        listEl.style.opacity = disabled ? '0.55' : '1';
+      }
     }
   }
 
@@ -1663,7 +1749,13 @@
     const chatRecipients = $('mp-chat-recipients');
     if (chatBroadcast && chatRecipients) {
       chatBroadcast.addEventListener('change', () => {
-        chatRecipients.disabled = chatBroadcast.checked;
+        const disabled = chatBroadcast.checked;
+        chatRecipients.disabled = disabled;
+        const checklist = $('mp-chat-recipient-list');
+        if (checklist) {
+          checklist.style.pointerEvents = disabled ? 'none' : 'auto';
+          checklist.style.opacity = disabled ? '0.55' : '1';
+        }
       });
       chatRecipients.disabled = chatBroadcast.checked;
     }

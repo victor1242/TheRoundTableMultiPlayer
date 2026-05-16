@@ -4,6 +4,7 @@ const http = require("http");
 const path = require("path");
 const { Server } = require("socket.io");
 const { createRoomManager } = require("./rooms/roomManager");
+const SuspendedGames = require("./suspendedGames");
 
 const app = express();
 const server = http.createServer(app);
@@ -19,11 +20,34 @@ const io = new Server(server, {
 const PORT = Number(process.env.PORT) || 3001;
 const roomManager = createRoomManager(io);
 
-// Serve the multiplayer client page and its JS from the TheRoundTable  folder
+// Serve the multiplayer client page and its JS from the TheRoundTable folder
 app.use(express.static(path.join(__dirname, "..", "TheRoundTable")));
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "TheRoundTable - multiplayer", ts: Date.now() });
+  res.json({ ok: true, service: "The Round Table - multiplayer", ts: Date.now() });
+});
+
+// REST API endpoints for suspended games
+app.get("/api/suspended-games", (_req, res) => {
+  try {
+    const games = SuspendedGames.listPausedGames();
+    res.json({ ok: true, games });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.delete("/api/suspended-games/:roomCode", (req, res) => {
+  try {
+    const { roomCode } = req.params;
+    const deleted = SuspendedGames.deletePausedGame(roomCode);
+    if (!deleted) {
+      return res.status(404).json({ ok: false, error: "Suspended game not found" });
+    }
+    res.json({ ok: true, message: "Game deleted" });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
 });
 
 io.on("connection", (socket) => {
@@ -59,6 +83,33 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("game:pause", ({ roomCode, playerId, description }, callback) => {
+    try {
+      const result = roomManager.pauseGame({ roomCode, playerId, socketId: socket.id, description });
+      callback?.({ ok: true, ...result });
+    } catch (error) {
+      callback?.({ ok: false, error: error.message });
+    }
+  });
+
+  socket.on("game:resume", ({ roomCode, playerId }, callback) => {
+    try {
+      const result = roomManager.resumeGame({ roomCode, playerId, socketId: socket.id });
+      callback?.({ ok: true, ...result });
+    } catch (error) {
+      callback?.({ ok: false, error: error.message });
+    }
+  });
+
+  socket.on("game:restart", ({ roomCode, playerId }, callback) => {
+    try {
+      const result = roomManager.restartGame({ roomCode, playerId, socketId: socket.id });
+      callback?.({ ok: true, ...result });
+    } catch (error) {
+      callback?.({ ok: false, error: error.message });
+    }
+  });
+
   socket.on("game:action", ({ roomCode, playerId, action }, callback) => {
     try {
       const result = roomManager.applyAction({ roomCode, playerId, socketId: socket.id, action });
@@ -83,6 +134,44 @@ io.on("connection", (socket) => {
       callback?.({ ok: true, ...result });
     } catch (error) {
       callback?.({ ok: false, error: error.message });
+    }
+  });
+
+  socket.on("chat:message", ({ roomCode, playerId, text, recipientIds }) => {
+    try {
+      if (!roomCode || !playerId || typeof text !== "string") return;
+      const safeText = text.trim().slice(0, 200);
+      if (!safeText) return;
+
+      const routing = roomManager.resolveChatTargets({
+        roomCode,
+        senderPlayerId: playerId,
+        recipientIds,
+      });
+
+      const payload = {
+        fromPlayerId: routing.sender.id,
+        playerName: routing.sender.name || "Unknown",
+        text: safeText,
+        roomCode: routing.roomCode,
+        isBroadcast: routing.isBroadcast,
+        recipientIds: routing.targets.map((target) => target.id),
+        recipientNames: routing.targets.map((target) => target.name),
+        ts: Date.now(),
+      };
+
+      // Echo to sender so they always see their outgoing message in chat history.
+      socket.emit("chat:message", payload);
+
+      // Deliver only to selected recipients, or all connected others for broadcast.
+      routing.targets.forEach((target) => {
+        const targetSocket = io.sockets.sockets.get(target.socketId);
+        if (targetSocket) {
+          targetSocket.emit("chat:message", payload);
+        }
+      });
+    } catch (error) {
+      socket.emit("chat:error", { error: error.message || "Unable to send message" });
     }
   });
 

@@ -20,7 +20,7 @@ const PORT = Number(process.env.PORT) || 3001;
 const roomManager = createRoomManager(io);
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "5crowns-multiplayer", ts: Date.now() });
+  res.json({ ok: true, service: "The Round Table-multiplayer", ts: Date.now() });
 });
 
 io.on("connection", (socket) => {

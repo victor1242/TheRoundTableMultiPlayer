@@ -1,0 +1,83 @@
+Yes, this is absolutely something I can help with.
+
+What you described (camera -> capture box HDMI in, HDMI out to TV works, USB to laptop) usually means the HDMI pass-through is fine, but Windows/VLC is not picking up the USB capture stream correctly yet.
+
+Try this in order:
+
+1. Confirm Windows sees the capture device
+- Plug in capture card USB directly to laptop (no hub if possible).
+- Open Device Manager.
+- Look under Cameras, Sound, video and game controllers, or Imaging devices.
+- You should see something like USB Video, UVC Camera, HD Video Capture, etc.
+- If you see unknown device, driver issue is likely.
+
+2. Quick test outside VLC
+- Open Windows Camera app.
+- Switch camera source if needed.
+- If you can see your camcorder video there, USB capture is working and VLC config is the issue.
+
+3. Privacy settings (Windows 11)
+- Settings -> Privacy & security -> Camera
+- Turn on Camera access and Let desktop apps access your camera.
+- VLC needs this permission.
+
+4. VLC setup (important)
+- Open VLC.
+- Media -> Open Capture Device
+- Capture mode: DirectShow
+- Video device name: choose your USB capture device
+- Audio device name: choose capture audio/HDMI audio device (if available)
+- Video size: try 1920x1080 first, then 1280x720 if no image
+- FPS: 30 (or 25 if your region uses PAL)
+- Click Play
+
+5. If video appears but audio is missing
+- In VLC, try different Audio device entries (USB Audio, Digital Audio Interface, HDMI audio, etc.).
+- Also check your camera playback audio is enabled and not muted.
+
+6. If VLC still shows black/no signal
+- Change camera output resolution (if possible) to 1080p or 720p (not 4K).
+- Disable camera HDMI overlays/info display if enabled.
+- Try another USB 3 port.
+- Try another cable (especially mini-HDMI/HDMI from camera).
+- Test in OBS Studio once: if OBS sees it but VLC doesn’t, it’s definitely VLC config.
+
+7. Recording in VLC once preview works
+- Media -> Open Capture Device -> (set device) -> click arrow next to Play -> Convert
+- Profile: Video - H.264 + MP3 (MP4)
+- Choose destination file and Start
+
+Important note
+- Some capture cards can only be opened by one app at a time. Close all other camera/video apps before opening in VLC.
+- If TV passthrough works but PC never detects USB video in any app, the capture device may be non-UVC or defective.
+
+If you want, I can walk you through exact VLC settings step-by-step while you try it, and we can narrow it down in a few minutes.
+
+
+
+
+Great progress. You’re correct: in VLC, clicking Play only previews the live capture, it does not automatically record.
+
+To record in VLC:
+
+1. Open Media -> Open Capture Device and select your capture device.
+2. Click Play to confirm you see video.
+3. Enable recording controls:
+   1. View -> Advanced Controls
+4. Click the red Record button to start capture.
+5. Click the red Record button again to stop.
+6. VLC saves the file to your Videos folder by default (unless you use Convert/Save and pick a path).
+
+More reliable method (lets you choose filename first):
+
+1. Media -> Open Capture Device
+2. Click the small arrow next to Play -> Convert
+3. Pick profile H.264 + MP3 (MP4)
+4. Choose destination file path/name
+5. Start
+
+Quick tip for old tape/camcorder content:
+- In VLC, enable deinterlacing during preview for smoother motion:
+  Video -> Deinterlace -> On (or Automatic)
+
+You found the key issue exactly right: selecting the actual capture card device instead of the laptop webcam entry.

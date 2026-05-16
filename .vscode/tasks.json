@@ -93,6 +93,28 @@
       ],
       "dependsOrder": "parallel",
       "problemMatcher": []
+    },
+    {
+      "label": "Start Host Session (Windows)",
+      "type": "shell",
+      "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File .\\start-host.ps1",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": [],
+      "detail": "Starts backend and cloudflared tunnel for internet hosting."
+    },
+    {
+      "label": "Stop Host Session (Windows)",
+      "type": "shell",
+      "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File .\\stop-host.ps1",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": [],
+      "detail": "Stops backend listener on 3001 and cloudflared processes."
     }
   ]
 }

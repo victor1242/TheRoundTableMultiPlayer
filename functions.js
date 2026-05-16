@@ -49,11 +49,11 @@ function debugLog(...args) {
 }
 
 function traceLog(...args) {
-  if (!TRACE) return;
+  if (!game.TRACE) return;
   console.log("[TRACE]", ...args);
 }
 
-function getMeldGroupColour(meldGroup) {
+function getGroupColour(meldGroup) {
   const colours = {
     0: "",
     1: "8px solid blue",
@@ -101,17 +101,19 @@ function addEventListeners() {
 
     const debugToggleEl = document.getElementById("debug-toggle");
     if (debugToggleEl) {
+      debugToggleEl.checked = Boolean(game.DEBUG);
       debugToggleEl.addEventListener("change", function (event) {
-        DEBUG = Boolean(event.target.checked);
-        console.log("DEBUG is now", DEBUG ? "ON" : "OFF");
+        game.DEBUG = Boolean(event.target.checked);
+        console.log("DEBUG is now", game.DEBUG ? "ON" : "OFF");
       });
     }
 
     const traceToggleEl = document.getElementById("trace-toggle");
     if (traceToggleEl) {
+      traceToggleEl.checked = Boolean(game.TRACE);
       traceToggleEl.addEventListener("change", function (event) {
-        TRACE = Boolean(event.target.checked);
-        console.log("TRACE is now", TRACE ? "ON" : "OFF");
+        game.TRACE = Boolean(event.target.checked);
+        console.log("TRACE is now", game.TRACE ? "ON" : "OFF");
       });
     }
 
@@ -191,6 +193,7 @@ if (game.currentPlayer.hand.length + game.currentPlayer.meldSets.length === game
     });
     updateDeckAndDiscardDisplay();
   }
+  turnOnMelding()
   renderPlayerHand(game.currentPlayer);
   applyMeldingStrategy();
   discardHint();
@@ -230,22 +233,25 @@ function dealHand(player, numCards) {
 }
 
 function setPlayerDrawMode() {
-    identifyCurrentPlayer("blue");
+    identifyCurrentPlayer("green");
     updateCurrentPlayerReference();
-    // turn on melding
-    changeMeldColor("blue")
-    game.currentPlayer.melding = true;
-    game.currentPlayer.meldGroup += 1;
-    game.currentPlayer.meldCount = 0;
     updatePlayerPrompt("Draw a card from the deck or discard pile.");
     drawDiscardHint();
+}
+
+function turnOnMelding() {
+  // turn on melding
+  changeMeldColor("blue")
+  game.currentPlayer.melding = true;
+  game.currentPlayer.meldGroup += 1;
+  game.currentPlayer.meldCount = 0;
 }
 
 function showRoundAndWilds() {
   let WildText = document.getElementById("wild-card");
   if (WildText)
     WildText.textContent =
-      " Wild Cards: " + getValueRank(game.roundNumber + 2) + "'s and Joker''s ";
+      " Wild Cards: " + getValueRank(game.roundNumber + 2) + "'s and Jester''s ";
 }
 
 function displayCardBack(cardId) {
@@ -344,7 +350,7 @@ function saveScoreBoard() {
         return;
       }
       
-      if (card.rank === "joker") {
+      if (card.rank === "jester") {
         p.roundScore += 50;
       } else if (card.value === wildRank) {
         p.roundScore += 20;
@@ -370,6 +376,7 @@ function saveScoreBoard() {
 
       return ({
         name: p.name,
+        aiPlayer: Boolean(p.aiPlayer),
         IsOut: p.IsOut,
         cards: handCount + meldCardCount,
         wentOutScore: p.wentOutScore ?? 0,
@@ -555,7 +562,7 @@ function PlayerHandBlinkOff(buttonGroup) {
 }
 
 function TestAI() {
-  const testHand = [kingOfHearts, kingOfSpades, kingOfDiamonds, threeOfClubs, joker];
+  const testHand = [kingOfHearts, kingOfSpades, kingOfDiamonds, threeOfClubs, jester];
   const testMeldSets = [[threeOfHearts, fourOfHearts, fiveOfHearts]];
   const shouldUnmeld = window.AIMeldPlanner.shouldUnmeldAndRemeld(testHand, testMeldSets, 5);
   const shouldMeld = window.AIMeldPlanner.shouldAttemptMeld(testHand, testMeldSets, 5);
@@ -735,7 +742,7 @@ function draw() {
     handCount: game.currentPlayer.hand.length,
     deckCount: game.deck.length,
   });
-
+  turnOnMelding()
   renderPlayerHand(game.currentPlayer);
   applyMeldingStrategy( )
   discardHint()
@@ -743,7 +750,7 @@ function draw() {
 
 
   function Meld() {
-  if ((game.currentPlayer.meldCount + game.currentPlayer.hand.length + 1) < game.cardsDealt + 1 )
+  if ((game.currentPlayer.meldCards.length + game.currentPlayer.hand.length + 1) < game.cardsDealt + 1 )
   { 
   showMessage ( "user","you must draw a card before melding");
   return;
@@ -950,11 +957,11 @@ function validateMeld(group, options = {}) {
     return { valid: false };
   }
   const wildRank = String(game.roundNumber + 2);
-  const jokers = group.filter(
-    (c) => c.rank === "joker" || c.rank === wildRank,
+  const jesters = group.filter(
+    (c) => c.rank === "jester" || c.rank === wildRank,
   );
-  const nonJokers = group.filter(
-    (c) => c.rank !== "joker" && c.rank !== wildRank,
+  const nonJesters = group.filter(
+    (c) => c.rank !== "jester" && c.rank !== wildRank,
   );
   const rankValue = (r) => {
     if (r === "jack") return 11;
@@ -962,8 +969,8 @@ function validateMeld(group, options = {}) {
     if (r === "king") return 13;
     return Number(r);
   };
-  const ranks = nonJokers.map((c) => c.rank);
-  const suitsArr = nonJokers.map((c) => c.suit);
+  const ranks = nonJesters.map((c) => c.rank);
+  const suitsArr = nonJesters.map((c) => c.suit);
   const uniqueRanks = [...new Set(ranks)];
   const uniqueSuits = [...new Set(suitsArr)];
 
@@ -974,26 +981,26 @@ function validateMeld(group, options = {}) {
     );
   }
 
-  if (uniqueRanks.length === 0 && uniqueSuits.length === nonJokers.length) {
+  if (uniqueRanks.length === 0 && uniqueSuits.length === nonJesters.length) {
     if (!silent) showMessage("user", "[validateMeld] Valid set");
     return { valid: true, type: "set" };
   }
   if (
-    nonJokers.length > 0 &&
+    nonJesters.length > 0 &&
     uniqueRanks.length === 1 &&
     group.length >= 3 &&
-    nonJokers.length + jokers.length === group.length
+    nonJesters.length + jesters.length === group.length
   ) {
-    if (!silent) showMessage("user", "[validateMeld] Valid set (with wilds/jokers)");
+    if (!silent) showMessage("user", "[validateMeld] Valid set (with wilds/jesters)");
     return { valid: true, type: "set" };
   }
   if (uniqueSuits.length === 1) {
-    // check that the unique suit forms a sequence with wilds/jokers filling any gaps
-    if ((uniqueRanks.length + jokers.length) < 3) {
+    // check that the unique suit forms a sequence with wilds/jesters filling any gaps
+    if ((uniqueRanks.length + jesters.length) < 3) {
       if (!silent) showMessage("TRACE", "[validateMeld] Invalid run: not enough cards to fill gaps");
       return { valid: false };
     }
-    let values = nonJokers
+    let values = nonJesters
       .map((c) => rankValue(c.rank))
       .sort((a, b) => a - b);
     let gaps = 0;
@@ -1002,10 +1009,10 @@ function validateMeld(group, options = {}) {
     }
     if (!silent) {
       showMessage("TRACE",
-        `[validateMeld] Run gaps: ${gaps}, jokers: ${jokers.length}`,
+        `[validateMeld] Run gaps: ${gaps}, jesters: ${jesters.length}`,
       );
     }
-    if (gaps <= jokers.length) {
+    if (gaps <= jesters.length) {
       if (!silent) showMessage("user","[validateMeld] Valid run");
       return { valid: true, type: "run" };
     } else {
@@ -1061,54 +1068,6 @@ function validateMeld(group, options = {}) {
   }
  }
 
-function XGameState(game) {
-// Only save serializable properties
-  const stateToSave = {
-    cardWidth: game.cardWidth,
-    currentPlayer: game.currentPlayer,
-    cardHeight: game.cardHeight,
-    roundNumber: game.roundNumber,
-    scoreboardData: game.scoreboardData,
-    dealerIndex: game.dealerIndex,
-    activePlayer: game.activePlayer,
-    cardsDealt: game.cardsDealt,
-    deck: game.deck.cards,
-    players: game.players.map((p) => (  { 
-      id: p.id,
-      name: p.name,
-      gameScore: p.gameScore,
-      roundScore: p.roundScore,
-      hand: p.hand,
-      meldSets: p.meldSets,
-      meldCount: p.meldCount,
-      melding: p.melding,
-      IsOut: p.IsOut,
-      wildDiscard: p.wildDiscard,  
-      wildDraw: p.wildDraw,
-      wildCardUse: p.wildCardUse,
-      goingOutBonus: p.goingOutBonus,
-      aiPlayer: p.aiPlayer
-    })),
-    discardPile: game.discardPile,
-    scoreboardData: game.scoreboardData,
-    // Add other game properties as needed
-  };
-
-  //console.log(JSON.stringify(stateToSave));
-  localStorage.setItem("game_state", JSON.stringify(stateToSave));
-
-  game.players.forEach((p) => {
-  console.log(`Player: ${p.name} (ID: ${p.id})`);
-  // Stringify makes the card objects readable
-  console.log("Hand:", JSON.stringify(p.hand, null, 2)); 
-  });
-  const storageKey = getCurrentGameStorageKey(true);
-  localStorage.setItem(storageKey, JSON.stringify(stateToSave));
-  upsertGamesDirectoryEntry();
-
-}
-
-
   function updatePlayerPrompt(msg) {
   const promptEl = document.getElementById(game.currentPlayer.id + "prompt")
   if (promptEl) promptEl.textContent = msg;
@@ -1135,7 +1094,7 @@ function showRoundAndWilds() {
   let WildText = document.getElementById("wild-card");
   if (WildText)
     WildText.textContent ="Round: " + game.roundNumber +
-      " Wild Cards: " + getValueRank(game.roundNumber + 2) + "'s and Joker''s ";
+      " Wild Cards: " + getValueRank(game.roundNumber + 2) + "'s and Jester''s ";
 }
 
 

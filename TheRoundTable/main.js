@@ -491,17 +491,17 @@ function applyAIConfig(config) {
 }
 
 function toggleDebug() {
-  DEBUG = !DEBUG;
-  console.log("DEBUG is now", DEBUG ? "ON" : "OFF");
+  game.DEBUG = !game.DEBUG;
+  console.log("DEBUG is now", game.DEBUG ? "ON" : "OFF");
   const debugToggle = document.getElementById("debug-toggle");
-  if (debugToggle) debugToggle.checked = DEBUG;
+  if (debugToggle) debugToggle.checked = game.DEBUG;
 }
 
 function setDebugMode(enabled) {
-  DEBUG = Boolean(enabled);
+  game.DEBUG = Boolean(enabled);
   const debugToggle = document.getElementById("debug-toggle");
-  if (debugToggle) debugToggle.checked = DEBUG;
-  console.log("DEBUG is now", DEBUG ? "ON" : "OFF");
+  if (debugToggle) debugToggle.checked = game.DEBUG;
+  console.log("DEBUG is now", game.DEBUG ? "ON" : "OFF");
 }
 
 function displayCard(card, cardId, mode) {
@@ -514,7 +514,11 @@ function displayCard(card, cardId, mode) {
   cardImg.width = game.cardWidth;
   cardImg.height = game.cardHeight;
   cardImg.style.border = card.styleBorder;
-  cardImg.src = "./cards/" + card.rank + "_of_" + card.suit + ".png";
+  const cardRank = String(card.rank || "").toLowerCase();
+  const cardSuit = String(card.suit || "").toLowerCase();
+  cardImg.src = cardRank === "joker"
+    ? "./cards/jester_of_stars.png"
+    : "./cards/" + cardRank + "_of_" + cardSuit + ".png";
   if (mode === "meld") cardImg.style.border = game.meldingColour;
   let existingEl = document.getElementById(cardId);
   if (existingEl) {

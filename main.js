@@ -119,7 +119,7 @@ function startGameWhenReady() {
 */
 function updateCurrentPlayerReference() {
   game.currentPlayer= game.players[game.currentPlayerIndex];
-  identifyCurrentPlayer("blue");
+  //identifyCurrentPlayer("blue");
 }
 
 function updateHumanAIFlag() {  
@@ -491,17 +491,17 @@ function applyAIConfig(config) {
 }
 
 function toggleDebug() {
-  DEBUG = !DEBUG;
-  showMessage("TRACE", "DEBUG is now", DEBUG ? "ON" : "OFF");
+  game.DEBUG = !game.DEBUG;
+  showMessage("TRACE", "DEBUG is now", game.DEBUG ? "ON" : "OFF");
   const debugToggle = document.getElementById("debug-toggle");
-  if (debugToggle) debugToggle.checked = DEBUG;
+  if (debugToggle) debugToggle.checked = game.DEBUG;
 }
 
 function setDebugMode(enabled) {
-  DEBUG = Boolean(enabled);
+  game.DEBUG = Boolean(enabled);
   const debugToggle = document.getElementById("debug-toggle");
-  if (debugToggle) debugToggle.checked = DEBUG;
-  showMessage("DEBUG is now", DEBUG ? "ON" : "OFF");
+  if (debugToggle) debugToggle.checked = game.DEBUG;
+  showMessage("DEBUG is now", game.DEBUG ? "ON" : "OFF");
 }
 
 function displayCard(card, cardId, mode) {

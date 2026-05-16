@@ -45,7 +45,7 @@ function debugLog(...args) {
 }
 
 function traceLog(...args) {
-  if (!TRACE) return;
+  if (!game.TRACE) return;
   console.log("[TRACE]", ...args);
 }
 
@@ -97,17 +97,19 @@ function addEventListeners() {
 
     const debugToggleEl = document.getElementById("debug-toggle");
     if (debugToggleEl) {
+      debugToggleEl.checked = Boolean(game.DEBUG);
       debugToggleEl.addEventListener("change", function (event) {
-        DEBUG = Boolean(event.target.checked);
-        console.log("DEBUG is now", DEBUG ? "ON" : "OFF");
+        game.DEBUG = Boolean(event.target.checked);
+        console.log("DEBUG is now", game.DEBUG ? "ON" : "OFF");
       });
     }
 
     const traceToggleEl = document.getElementById("trace-toggle");
     if (traceToggleEl) {
+      traceToggleEl.checked = Boolean(game.TRACE);
       traceToggleEl.addEventListener("change", function (event) {
-        TRACE = Boolean(event.target.checked);
-        console.log("TRACE is now", TRACE ? "ON" : "OFF");
+        game.TRACE = Boolean(event.target.checked);
+        console.log("TRACE is now", game.TRACE ? "ON" : "OFF");
       });
     }
 

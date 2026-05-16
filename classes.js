@@ -88,7 +88,7 @@ class Deck {
     Icon = getSuitIcon("stars")[0];
     Colour = getSuitIcon("stars")[1];
     for (let i = 0; i < 3; i++) {
-      this.cards.push(new Card("stars", Icon, Colour, "joker", 50));
+      this.cards.push(new Card("stars", Icon, Colour, "jester", 50));
     }
     this.cards = this.cards.concat(this.cards);
   }
@@ -105,17 +105,17 @@ class Deck {
       jack: 11,
       queen: 12,
       king: 13,
-      joker: 50,
+      jester: 50,
     };
     return values[rank];
   }
   getWildState(rank) {
-    if (rank === "joker" || this.getRankValue(rank) === this.cardsDealt)
+    if (rank === "jester" || this.getRankValue(rank) === this.cardsDealt)
       return true;
     else return false;
   }
   getWildValue(rank, cardsDealt) {
-    if (rank === "joker") return 50;
+    if (rank === "jester") return 50;
     else if (this.getRankValue(rank) === cardsDealt) return 20;
   }
   shuffle() {

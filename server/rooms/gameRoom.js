@@ -1,5 +1,6 @@
 const { randomUUID } = require("crypto");
 const Engine = require("../engine/gameEngine");
+const SuspendedGames = require("../suspendedGames");
 
 function toSafeName(name) {
   const trimmed = String(name || "").trim();
@@ -13,7 +14,7 @@ class GameRoom {
     this.players = [];
     // gameState holds both lobby metadata and live round state
     this.gameState = {
-      phase: "lobby",   // 'lobby' | 'playing' | 'roundOver' | 'gameOver'
+      phase: "lobby",   // 'lobby' | 'playing' | 'paused' | 'roundOver' | 'gameOver'
       turnIndex: 0,
       version: 0,
       lastAction: null,
@@ -25,6 +26,9 @@ class GameRoom {
       goingOutPlayerId: null,
       finalTurnQueue: [],
       roundHistory: [],
+      pausedByPlayerId: null,
+      pausedAt: null,
+      pausedFromPhase: null,
     };
   }
 
@@ -52,6 +56,7 @@ class GameRoom {
     return this.players.find((p) => (
       p.id !== excludedPlayerId
       && p.connected
+      && p.socketId
       && String(p.name || "").trim().toLowerCase() === normalized
     )) || null;
   }
@@ -70,6 +75,17 @@ class GameRoom {
     return player;
   }
 
+  clearSocketFromOtherPlayers(socketId, keepPlayerId) {
+    if (!socketId) return;
+    this.players.forEach((p) => {
+      if (p.id === keepPlayerId) return;
+      if (p.socketId !== socketId) return;
+      p.connected = false;
+      p.socketId = null;
+      this.bumpVersion("player:left", { playerId: p.id });
+    });
+  }
+
   addOrReconnectPlayer({ socketId, playerName, playerId }) {
     const hasProvidedName = String(playerName || "").trim().length > 0;
     const safeName = hasProvidedName ? toSafeName(playerName) : null;
@@ -78,6 +94,7 @@ class GameRoom {
     if (playerId) {
       const existing = this.playerById(playerId);
       if (existing) {
+        this.clearSocketFromOtherPlayers(socketId, existing.id);
         existing.socketId = socketId;
         existing.connected = true;
         if (safeName) existing.name = safeName;
@@ -94,10 +111,17 @@ class GameRoom {
       ))
       : null;
     if (disconnectedWithName) {
+      this.clearSocketFromOtherPlayers(socketId, disconnectedWithName.id);
       disconnectedWithName.socketId = socketId;
       disconnectedWithName.connected = true;
       this.bumpVersion("player:reconnected", { playerId: disconnectedWithName.id });
       return disconnectedWithName;
+    }
+
+    // Block brand-new players from joining a game that is already in progress.
+    // Reconnects (matched by playerId or disconnected name above) bypass this check.
+    if (this.gameState && this.gameState.phase !== "lobby") {
+      throw new Error("Cannot join: the game is already in progress. Ask the host to start a new game.");
     }
 
     // Check for name conflict with connected players only
@@ -109,6 +133,8 @@ class GameRoom {
     if (this.players.length >= 6) {
       throw new Error("Room is full");
     }
+
+    this.clearSocketFromOtherPlayers(socketId, null);
 
     const player = {
       id: randomUUID(),
@@ -136,6 +162,7 @@ class GameRoom {
     const player = this.playerBySocketId(socketId);
     if (!player) return null;
     player.connected = false;
+    player.socketId = null;
     this.bumpVersion("player:left", { playerId: player.id });
     return player;
   }
@@ -152,9 +179,79 @@ class GameRoom {
     }
 
     this._setupRound(1);
+    this.gameState.roundHistory = [];
+    this.gameState.lastAction = null;
+    this.gameState.pausedByPlayerId = null;
+    this.gameState.pausedAt = null;
+    this.gameState.pausedFromPhase = null;
     this.gameState.phase = "playing";
     this.gameState.turnIndex = 0;
     this.bumpVersion("game:started", { playerId: this.players[0].id });
+  }
+
+  pauseGame(hostPlayerId, socketId, description) {
+    this.requireActiveSession(hostPlayerId, socketId);
+    if (this.gameState.phase !== "playing") {
+      throw new Error("Game is not currently playing");
+    }
+    if (this.getActiveHostId() !== hostPlayerId) {
+      throw new Error("Only host can pause the game");
+    }
+
+    this.gameState.phase = "paused";
+    this.gameState.pausedByPlayerId = hostPlayerId;
+    this.gameState.pausedAt = Date.now();
+    this.gameState.pausedFromPhase = "playing";
+    this.gameState.pauseDescription = description || null;
+    this.bumpVersion("game:paused", { playerId: hostPlayerId });
+
+    // Persist paused game to storage
+    const pausedByPlayer = this.playerById(hostPlayerId);
+    const playersList = this.players.map(p => ({ id: p.id, name: p.name }));
+    const pausedByName = pausedByPlayer ? pausedByPlayer.name : "Unknown";
+    SuspendedGames.savePausedGame(this.code, this.gameState, pausedByName, playersList, description || null);
+  }
+
+  resumeGame(hostPlayerId, socketId) {
+    this.requireActiveSession(hostPlayerId, socketId);
+    if (this.gameState.phase !== "paused") {
+      throw new Error("Game is not paused");
+    }
+    if (this.getActiveHostId() !== hostPlayerId) {
+      throw new Error("Only host can resume the game");
+    }
+
+    this.gameState.phase = this.gameState.pausedFromPhase || "playing";
+    this.gameState.pausedByPlayerId = null;
+    this.gameState.pausedAt = null;
+    this.gameState.pausedFromPhase = null;
+    this.bumpVersion("game:resumed", { playerId: hostPlayerId });
+
+    // Remove from suspended games storage on resume
+    SuspendedGames.deletePausedGame(this.code);
+  }
+
+  restartGame(hostPlayerId, socketId) {
+    this.requireActiveSession(hostPlayerId, socketId);
+    if (this.getActiveHostId() !== hostPlayerId) {
+      throw new Error("Only host can start a new game");
+    }
+    if (this.players.length < 2) {
+      throw new Error("Need at least 2 players to start");
+    }
+
+    this._setupRound(1);
+    this.gameState.roundHistory = [];
+    this.gameState.lastAction = null;
+    this.gameState.pausedByPlayerId = null;
+    this.gameState.pausedAt = null;
+    this.gameState.pausedFromPhase = null;
+    this.gameState.phase = "playing";
+    this.gameState.turnIndex = 0;
+    this.bumpVersion("game:restarted", { playerId: hostPlayerId });
+
+    // Clean up suspended game storage when starting new game
+    SuspendedGames.deletePausedGame(this.code);
   }
 
   _setupRound(roundNumber) {
@@ -445,6 +542,11 @@ class GameRoom {
     });
 
     gs.phase = gs.roundNumber >= Engine.LAST_ROUND ? "gameOver" : "roundOver";
+
+    // Clean up suspended game from storage when game ends
+    if (gs.phase === "gameOver") {
+      SuspendedGames.deletePausedGame(this.code);
+    }
   }
 
   startNextRound(hostPlayerId, socketId) {
@@ -481,7 +583,7 @@ class GameRoom {
 
   toClientState(callerPlayerId) {
     const gs = this.gameState;
-    const isPlaying = gs.phase === "playing" || gs.phase === "roundOver" || gs.phase === "gameOver";
+    const isPlaying = gs.phase !== "lobby";
     const activeHostId = this.getActiveHostId();
 
     // Base (lobby) payload — always safe to send to all players
@@ -500,6 +602,9 @@ class GameRoom {
         currentPlayerId: this.players[gs.turnIndex]?.id || null,
         version: gs.version,
         lastAction: gs.lastAction,
+        pausedByPlayerId: gs.pausedByPlayerId,
+        pausedAt: gs.pausedAt,
+        pausedFromPhase: gs.pausedFromPhase,
       },
     };
 
@@ -532,6 +637,11 @@ class GameRoom {
       currentPlayerName: currentP ? currentP.name : "",
       myIsOut:           Boolean(caller && caller.IsOut),
       outPlayerIds,
+      isPaused:          gs.phase === "paused",
+      pausedByPlayerId:  gs.pausedByPlayerId,
+      pausedByName:      gs.pausedByPlayerId ? (this.playerById(gs.pausedByPlayerId)?.name || "Host") : null,
+      pausedAt:          gs.pausedAt,
+      pausedFromPhase:   gs.pausedFromPhase,
 
       // ── Private: only this player's cards ───────────────────────────────
       // myHand and myMelds are private — only meaningful if callerPlayerId is set
